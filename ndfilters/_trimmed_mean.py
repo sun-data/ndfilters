@@ -147,7 +147,7 @@ def _mean_trimmed_1d(
     return result
 
 
-@numba.njit(parallel=True, boundscheck=True)
+@numba.njit(parallel=True)
 def _mean_trimmed_2d(
         array: np.ndarray,
         kernel_shape: tuple[int, int],
