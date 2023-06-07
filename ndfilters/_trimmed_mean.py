@@ -2,11 +2,11 @@ import numpy as np
 import numba
 
 __all__ = [
-    "mean_trimmed"
+    "trimmed_mean_filter"
 ]
 
 
-def mean_trimmed(
+def trimmed_mean_filter(
         array: np.ndarray,
         kernel_shape: int | tuple[int, ...],
         proportion: float = 0.25,
@@ -41,7 +41,7 @@ def mean_trimmed(
         import ndfilters
 
         img = scipy.datasets.ascent()
-        img_filtered = ndfilters.mean_trimmed(img)
+        img_filtered = ndfilters.trimmed_mean_filter(img)
 
         fig, axs = plt.subplots(ncols=2, sharex=True, sharey=True)
         axs[0].imshow(img)

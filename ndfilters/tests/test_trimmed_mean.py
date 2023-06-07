@@ -31,7 +31,7 @@ import ndfilters
     ]
 )
 @pytest.mark.parametrize("proportion", [0.25, 0.45])
-def test_mean_trimmed_1d(
+def test_trimmed_mean_filter(
         array: np.ndarray,
         kernel_shape: int | tuple[int, ...],
         axis: None | int | tuple[int, ...],
@@ -44,7 +44,7 @@ def test_mean_trimmed_1d(
             axis_normalized = np.core.numeric.normalize_axis_tuple(axis, ndim=array.ndim)
         except np.AxisError:
             with pytest.raises(np.AxisError):
-                ndfilters.mean_trimmed(
+                ndfilters.trimmed_mean_filter(
                     array=array,
                     kernel_shape=kernel_shape,
                     proportion=proportion,
@@ -56,7 +56,7 @@ def test_mean_trimmed_1d(
 
     if len(kernel_shape_normalized) != len(axis_normalized):
         with pytest.raises(ValueError):
-            ndfilters.mean_trimmed(
+            ndfilters.trimmed_mean_filter(
                 array=array,
                 kernel_shape=kernel_shape,
                 proportion=proportion,
@@ -64,7 +64,7 @@ def test_mean_trimmed_1d(
             )
         return
 
-    result = ndfilters.mean_trimmed(
+    result = ndfilters.trimmed_mean_filter(
         array=array,
         kernel_shape=kernel_shape,
         proportion=proportion,
