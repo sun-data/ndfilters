@@ -1,1 +1,1 @@
-from ._mean_trimmed import *
+from ._trimmed_mean import *
