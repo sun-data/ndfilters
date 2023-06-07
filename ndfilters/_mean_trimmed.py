@@ -29,8 +29,24 @@ def mean_trimmed(
 
     Returns
     -------
-    filtered_array
         A copy of the array with the trimmed mean filter applied.
+
+    Examples
+    --------
+
+    .. jupyter-execute::
+
+        import matplotlib.pyplot as plt
+        import scipy.datasets
+        import ndfilters
+
+        img = scipy.datasets.ascent()
+        img_filtered = ndfilters.mean_trimmed(img)
+
+        fig, axs = plt.subplots(ncols=2, sharex=True, sharey=True)
+        axs[0].imshow(img)
+        axs[1].imshow(img_filtered)
+
     """
 
     if axis is None:
