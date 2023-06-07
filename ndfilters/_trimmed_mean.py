@@ -41,7 +41,7 @@ def trimmed_mean_filter(
         import ndfilters
 
         img = scipy.datasets.ascent()
-        img_filtered = ndfilters.trimmed_mean_filter(img)
+        img_filtered = ndfilters.trimmed_mean_filter(imgm kernel_shape=21)
 
         fig, axs = plt.subplots(ncols=2, sharex=True, sharey=True)
         axs[0].imshow(img)
