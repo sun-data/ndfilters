@@ -26,7 +26,8 @@ test = [
 ]
 doc = [
     "pytest",
-    "scipy[all]",
+    "scipy",
+    "pooch",
     "matplotlib",
     "graphviz",
     "sphinx-autodoc-typehints",
