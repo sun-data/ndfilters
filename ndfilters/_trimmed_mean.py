@@ -44,8 +44,10 @@ def trimmed_mean_filter(
         img_filtered = ndfilters.trimmed_mean_filter(img, kernel_shape=21)
 
         fig, axs = plt.subplots(ncols=2, sharex=True, sharey=True)
-        axs[0].imshow(img)
-        axs[1].imshow(img_filtered)
+        ax[0].set_title("original image");
+        axs[0].imshow(img, cmap="gray");
+        axs[1].set_title("filtered image");
+        axs[1].imshow(img_filtered, cmap="gray");
 
     """
 
