@@ -15,7 +15,7 @@ Similar to the filters in `scipy.ndimage` but accelerated using `numba`.
 pip install ndfilters
 ```
 
-The only filter currently implemented is a trimmed mean filter.
+The only filter currently implemented is a trimmed mean filter. This filter ignores a given portion of the dataset before calculating the mean at each pixel.
 
 
 ```python
@@ -32,3 +32,12 @@ axs[0].imshow(img, cmap="gray");
 axs[1].set_title("filtered image");
 axs[1].imshow(img_filtered, cmap="gray");
 ```
+
+    Downloading file 'ascent.dat' from 'https://raw.githubusercontent.com/scipy/dataset-ascent/main/ascent.dat' to '/home/runner/.cache/scipy-data'.
+
+
+
+    
+![png](README_files/README_1_1.png)
+    
+
