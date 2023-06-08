@@ -40,4 +40,7 @@ doc = [
 Homepage = "https://github.com/byrdie/ndfilters"
 Documentation = "https://ndfilters.readthedocs.io/en/latest"
 
+[tool.setuptools]
+packages = ["ndfilters"]
+
 [tool.setuptools_scm]
