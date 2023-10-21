@@ -38,7 +38,7 @@ doc = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/byrdie/ndfilters"
+Homepage = "https://github.com/sun-data/ndfilters"
 Documentation = "https://ndfilters.readthedocs.io/en/latest"
 
 [tool.setuptools]
