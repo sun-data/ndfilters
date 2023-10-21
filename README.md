@@ -1,6 +1,6 @@
 # ndfilters
 
-[![tests](https://github.com/sun-data/ndfilters/actions/workflows/tests.yml/badge.svg)](https://github.com/byrdie/ndfilters/actions/workflows/tests.yml)
+[![tests](https://github.com/sun-data/ndfilters/actions/workflows/tests.yml/badge.svg)](https://github.com/sun-data/ndfilters/actions/workflows/tests.yml)
 [![codecov](https://codecov.io/gh/sun-data/ndfilters/graph/badge.svg?token=BFTOVSyFtf)](https://codecov.io/gh/sun-data/ndfilters)
 [![Documentation Status](https://readthedocs.org/projects/ndfilters/badge/?version=latest)](https://ndfilters.readthedocs.io/en/latest/?badge=latest)
 [![PyPI version](https://badge.fury.io/py/ndfilters.svg)](https://badge.fury.io/py/ndfilters)
