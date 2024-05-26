@@ -54,11 +54,10 @@ def test_trimmed_mean_filter(
                 )
             return
 
-    size_normalized = (
-        (size,) * len(axis_normalized)
-        if isinstance(size, int)
-        else size
-    )
+    if isinstance(size, int):
+        size_normalized = (size,) * len(axis_normalized)
+    else:
+        size_normalized = size
 
     if len(size_normalized) != len(axis_normalized):
         with pytest.raises(ValueError):
