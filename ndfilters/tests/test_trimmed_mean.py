@@ -11,7 +11,7 @@ import ndfilters
         np.random.random(16),
         np.random.random((16, 17)),
         np.random.random((16, 17, 18)),
-    ]
+    ],
 )
 @pytest.mark.parametrize(
     argnames="kernel_shape",
@@ -22,26 +22,28 @@ import ndfilters
     argvalues=[
         0,
         -1,
-        (0, ),
-        (-1, ),
+        (0,),
+        (-1,),
         (0, 1),
         (-2, -1),
         (0, 1, 2),
         (2, 1, 0),
-    ]
+    ],
 )
 @pytest.mark.parametrize("proportion", [0.25, 0.45])
 def test_trimmed_mean_filter(
-        array: np.ndarray,
-        kernel_shape: int | tuple[int, ...],
-        axis: None | int | tuple[int, ...],
-        proportion: float,
+    array: np.ndarray,
+    kernel_shape: int | tuple[int, ...],
+    axis: None | int | tuple[int, ...],
+    proportion: float,
 ):
     if axis is None:
         axis_normalized = tuple(range(array.ndim))
     else:
         try:
-            axis_normalized = np.core.numeric.normalize_axis_tuple(axis, ndim=array.ndim)
+            axis_normalized = np.core.numeric.normalize_axis_tuple(
+                axis, ndim=array.ndim
+            )
         except np.AxisError:
             with pytest.raises(np.AxisError):
                 ndfilters.trimmed_mean_filter(
@@ -52,7 +54,11 @@ def test_trimmed_mean_filter(
                 )
             return
 
-    kernel_shape_normalized = (kernel_shape,) * len(axis_normalized) if isinstance(kernel_shape, int) else kernel_shape
+    kernel_shape_normalized = (
+        (kernel_shape,) * len(axis_normalized)
+        if isinstance(kernel_shape, int)
+        else kernel_shape
+    )
 
     if len(kernel_shape_normalized) != len(axis_normalized):
         with pytest.raises(ValueError):
@@ -71,7 +77,7 @@ def test_trimmed_mean_filter(
         axis=axis,
     )
 
-    kernel_shape_scipy = [1, ] * array.ndim
+    kernel_shape_scipy = [1] * array.ndim
     for i, ax in enumerate(axis_normalized):
         kernel_shape_scipy[ax] = kernel_shape_normalized[i]
 
@@ -84,4 +90,3 @@ def test_trimmed_mean_filter(
     )
 
     assert np.allclose(result, expected)
-
