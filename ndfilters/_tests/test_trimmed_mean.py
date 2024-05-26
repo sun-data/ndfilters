@@ -15,7 +15,7 @@ import ndfilters
 )
 @pytest.mark.parametrize(
     argnames="kernel_shape",
-    argvalues=[2, (3,), (2, 3), (2, 3, 4)],
+    argvalues=[2, (3,), (3, 4), (3, 4, 5)],
 )
 @pytest.mark.parametrize(
     argnames="axis",
