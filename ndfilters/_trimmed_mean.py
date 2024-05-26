@@ -8,7 +8,7 @@ __all__ = [
 
 def trimmed_mean_filter(
     array: np.ndarray,
-    kernel_shape: int | tuple[int, ...],
+    size: int | tuple[int, ...],
     proportion: float = 0.25,
     axis: None | int | tuple[int, ...] = None,
 ) -> np.ndarray:
@@ -19,7 +19,7 @@ def trimmed_mean_filter(
     ----------
     array
         The input array to be filtered
-    kernel_shape
+    size
         The shape of the kernel over which the trimmed mean will be calculated.
     proportion
         The proportion to cut from the top and bottom of the distribution.
@@ -41,7 +41,7 @@ def trimmed_mean_filter(
         import ndfilters
 
         img = scipy.datasets.ascent()
-        img_filtered = ndfilters.trimmed_mean_filter(img, kernel_shape=21)
+        img_filtered = ndfilters.trimmed_mean_filter(img, size=21)
 
         fig, axs = plt.subplots(ncols=2, sharex=True, sharey=True)
         axs[0].set_title("original image");
@@ -55,15 +55,15 @@ def trimmed_mean_filter(
         axis = tuple(range(array.ndim))
     axis = np.core.numeric.normalize_axis_tuple(axis, ndim=array.ndim)
 
-    if isinstance(kernel_shape, int):
-        kernel_shape = (kernel_shape,) * len(axis)
+    if isinstance(size, int):
+        size = (size,) * len(axis)
     else:
-        if len(kernel_shape) != len(axis):
+        if len(size) != len(axis):
             raise ValueError(
-                f"`kernel_shape` should have the same number of elements, "
-                f"{len(kernel_shape)}, as `axis`, {len(axis)}"
+                f"`size` should have the same number of elements, "
+                f"{len(size)}, as `axis`, {len(axis)}"
             )
-    kernel_shape = tuple(np.array(kernel_shape)[np.argsort(axis)])
+    size = tuple(np.array(size)[np.argsort(axis)])
 
     shape_orthogonal = tuple(
         1 if ax in axis else array.shape[ax] for ax in range(array.ndim)
@@ -81,19 +81,19 @@ def trimmed_mean_filter(
         if len(axis) == 1:
             result[index] = _mean_trimmed_1d(
                 array=array[index],
-                kernel_shape=kernel_shape,
+                size=size,
                 proportion=proportion,
             )
         elif len(axis) == 2:
             result[index] = _mean_trimmed_2d(
                 array=array[index],
-                kernel_shape=kernel_shape,
+                size=size,
                 proportion=proportion,
             )
         elif len(axis) == 3:
             result[index] = _mean_trimmed_3d(
                 array=array[index],
-                kernel_shape=kernel_shape,
+                size=size,
                 proportion=proportion,
             )
         else:
@@ -107,14 +107,14 @@ def trimmed_mean_filter(
 @numba.njit(parallel=True)
 def _mean_trimmed_1d(
     array: np.ndarray,
-    kernel_shape: tuple[int],
+    size: tuple[int],
     proportion: float,
 ):
     result = np.empty_like(array)
 
     (array_shape_x,) = array.shape
 
-    (kernel_shape_x,) = kernel_shape
+    (kernel_shape_x,) = size
     kernel_size = kernel_shape_x
 
     for ix in numba.prange(array_shape_x):
@@ -164,14 +164,14 @@ def _mean_trimmed_1d(
 @numba.njit(parallel=True)
 def _mean_trimmed_2d(
     array: np.ndarray,
-    kernel_shape: tuple[int, int],
+    size: tuple[int, int],
     proportion: float,
 ):
     result = np.empty_like(array)
 
     array_shape_x, array_shape_y = array.shape
 
-    kernel_shape_x, kernel_shape_y = kernel_shape
+    kernel_shape_x, kernel_shape_y = size
     kernel_size = kernel_shape_x * kernel_shape_y
 
     for ix in numba.prange(array_shape_x):
@@ -233,14 +233,14 @@ def _mean_trimmed_2d(
 @numba.njit(parallel=True)
 def _mean_trimmed_3d(
     array: np.ndarray,
-    kernel_shape: tuple[int, int, int],
+    size: tuple[int, int, int],
     proportion: float,
 ):
     result = np.empty_like(array)
 
     array_shape_x, array_shape_y, array_shape_z = array.shape
 
-    kernel_shape_x, kernel_shape_y, kernel_shape_z = kernel_shape
+    kernel_shape_x, kernel_shape_y, kernel_shape_z = size
     kernel_size = kernel_shape_x * kernel_shape_y * kernel_shape_z
 
     for ix in numba.prange(array_shape_x):

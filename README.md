@@ -22,4 +22,4 @@ pip install ndfilters
 The only filter currently implemented is a [trimmed mean filter](https://ndfilters.readthedocs.io/en/latest/_autosummary/ndfilters.trimmed_mean_filter.html#ndfilters.trimmed_mean_filter).
 This filter ignores a given portion of the dataset before calculating the mean at each pixel.
 
-![trimmed mean filter](https://ndfilters.readthedocs.io/en/latest/_images/ndfilters.trimmed_mean_filter_0_1.png)
+![trimmed mean filter](https://ndfilters.readthedocs.io/en/latest/_images/ndfilters.trimmed_mean_filter_0_2.png)
