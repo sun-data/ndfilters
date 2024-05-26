@@ -30,7 +30,12 @@ jobs:
       - name: Test with pytest
         run: |
           pip install pytest pytest-cov
-          pytest --doctest-modules --junitxml=junit/test-results.xml --cov=. --cov-report=xml --cov-report=html
+          pytest --cov=. --cov-report=xml
+      - name: Test with Numba disabled
+        env:
+          NUMBA_DISABLE_JIT: 1
+        run: |
+          pytest --cov=. --cov-report=xml
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
         with:
