@@ -14,7 +14,7 @@ import ndfilters
     ],
 )
 @pytest.mark.parametrize(
-    argnames="kernel_shape",
+    argnames="size",
     argvalues=[2, (3,), (3, 4), (3, 4, 5)],
 )
 @pytest.mark.parametrize(
@@ -33,7 +33,7 @@ import ndfilters
 @pytest.mark.parametrize("proportion", [0.25, 0.45])
 def test_trimmed_mean_filter(
     array: np.ndarray,
-    kernel_shape: int | tuple[int, ...],
+    size: int | tuple[int, ...],
     axis: None | int | tuple[int, ...],
     proportion: float,
 ):
@@ -48,23 +48,22 @@ def test_trimmed_mean_filter(
             with pytest.raises(np.AxisError):
                 ndfilters.trimmed_mean_filter(
                     array=array,
-                    kernel_shape=kernel_shape,
+                    size=size,
                     proportion=proportion,
                     axis=axis,
                 )
             return
 
-    kernel_shape_normalized = (
-        (kernel_shape,) * len(axis_normalized)
-        if isinstance(kernel_shape, int)
-        else kernel_shape
-    )
+    if isinstance(size, int):
+        size_normalized = (size,) * len(axis_normalized)
+    else:
+        size_normalized = size
 
-    if len(kernel_shape_normalized) != len(axis_normalized):
+    if len(size_normalized) != len(axis_normalized):
         with pytest.raises(ValueError):
             ndfilters.trimmed_mean_filter(
                 array=array,
-                kernel_shape=kernel_shape,
+                size=size,
                 proportion=proportion,
                 axis=axis,
             )
@@ -72,19 +71,19 @@ def test_trimmed_mean_filter(
 
     result = ndfilters.trimmed_mean_filter(
         array=array,
-        kernel_shape=kernel_shape,
+        size=size,
         proportion=proportion,
         axis=axis,
     )
 
-    kernel_shape_scipy = [1] * array.ndim
+    size_scipy = [1] * array.ndim
     for i, ax in enumerate(axis_normalized):
-        kernel_shape_scipy[ax] = kernel_shape_normalized[i]
+        size_scipy[ax] = size_normalized[i]
 
     expected = scipy.ndimage.generic_filter(
         input=array,
         function=scipy.stats.trim_mean,
-        size=kernel_shape_scipy,
+        size=size_scipy,
         mode="mirror",
         extra_keywords=dict(proportiontocut=proportion),
     )
