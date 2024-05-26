@@ -8,14 +8,14 @@ import ndfilters
 @pytest.mark.parametrize(
     argnames="array",
     argvalues=[
-        np.random.random(16),
-        np.random.random((16, 17)),
-        np.random.random((16, 17, 18)),
+        np.random.random(5),
+        np.random.random((5, 6)),
+        np.random.random((5, 6, 7)),
     ],
 )
 @pytest.mark.parametrize(
     argnames="kernel_shape",
-    argvalues=[5, (5,), (5, 6), (5, 6, 7)],
+    argvalues=[2, (3,), (2, 3), (2, 3, 4)],
 )
 @pytest.mark.parametrize(
     argnames="axis",
