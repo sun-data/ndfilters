@@ -52,7 +52,10 @@ def mean_filter(
     """
     array, where = np.broadcast_arrays(array, where, subok=True)
 
-    axis = np.core.numeric.normalize_axis_tuple(axis=axis, ndim=array.ndim)
+    if axis is None:
+        axis = tuple(range(array.ndim))
+    else:
+        axis = np.core.numeric.normalize_axis_tuple(axis=axis, ndim=array.ndim)
 
     if isinstance(size, int):
         size = (size,) * len(axis)
