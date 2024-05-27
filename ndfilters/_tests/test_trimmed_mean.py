@@ -20,6 +20,7 @@ import ndfilters
 @pytest.mark.parametrize(
     argnames="axis",
     argvalues=[
+        None,
         0,
         -1,
         (0,),
