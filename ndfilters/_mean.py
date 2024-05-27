@@ -91,6 +91,7 @@ def _mean_filter_1d(
         array=array,
         size=size,
         where=where,
+        out=np.empty_like(array),
     )
 
     result = result.reshape(shape)
@@ -105,9 +106,9 @@ def _mean_filter_1d_numba(
     array: np.ndarray,
     size: int,
     where: np.ndarray,
+    out: np.ndarray,
 ) -> np.ndarray:
 
-    result = np.empty_like(array)
     num_t, num_x = array.shape
 
     halfsize = size // 2
@@ -132,6 +133,6 @@ def _mean_filter_1d_numba(
                     sum += array[t, k]
                     count += 1
 
-            result[t, i] = sum / count
+            out[t, i] = sum / count
 
-    return result
+    return out

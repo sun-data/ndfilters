@@ -2,6 +2,7 @@ import pytest
 import numpy as np
 import scipy.ndimage
 import scipy.stats
+import astropy.units as u
 import ndfilters
 
 
@@ -10,7 +11,7 @@ import ndfilters
     argvalues=[
         np.random.random(5),
         np.random.random((5, 6)),
-        np.random.random((5, 6, 7)),
+        np.random.random((5, 6, 7)) * u.mm,
     ],
 )
 @pytest.mark.parametrize(
@@ -75,9 +76,13 @@ def test_mean_filter(
         size=size_scipy,
         mode="constant",
     ) / scipy.ndimage.uniform_filter(
-        input=np.ones_like(array),
+        input=np.ones(array.shape),
         size=size_scipy,
         mode="constant",
     )
 
-    assert np.allclose(result, expected)
+    if isinstance(result, u.Quantity):
+        assert np.allclose(result.value, expected)
+        assert result.unit == array.unit
+    else:
+        assert np.allclose(result, expected)
