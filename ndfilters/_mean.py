@@ -21,9 +21,9 @@ def mean_filter(
     array
         The input array to be filtered
     size
-        The shape of the kernel over which the trimmed mean will be calculated.
+        The shape of the kernel over which the mean will be calculated.
     axis
-        The axes over which to apply the kernel. If :class:`None` the kernel
+        The axes over which to apply the kernel. If :obj:`None` the kernel
         is applied to every axis.
     where
         A boolean mask used to select which elements of the input array to filter.
