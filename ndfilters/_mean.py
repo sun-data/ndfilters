@@ -13,7 +13,7 @@ def mean_filter(
     where: bool | np.ndarray = True,
 ) -> np.ndarray:
     """
-    Calculate a multidimensional rolling trimmed mean.
+    Calculate a multidimensional rolling mean.
     The kernel is truncated at the edges of the array.
 
     Parameters
