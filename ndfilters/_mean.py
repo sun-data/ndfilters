@@ -73,7 +73,7 @@ def _mean_filter_1d(
     array: np.ndarray,
     size: int,
     axis: int,
-    where: np.ndarray
+    where: np.ndarray,
 ) -> np.ndarray:
 
     array = np.moveaxis(array, axis, ~0)
@@ -132,5 +132,3 @@ def _mean_filter_1d_numba(
             result[t, i] = sum / count
 
     return result
-
-
