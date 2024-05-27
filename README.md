@@ -17,9 +17,18 @@ Similar to the filters in `scipy.ndimage` but accelerated using `numba`.
 pip install ndfilters
 ```
 
-## Examples
+## Gallery
 
-The only filter currently implemented is a [trimmed mean filter](https://ndfilters.readthedocs.io/en/latest/_autosummary/ndfilters.trimmed_mean_filter.html#ndfilters.trimmed_mean_filter).
-This filter ignores a given portion of the dataset before calculating the mean at each pixel.
+### Mean filter
 
-![trimmed mean filter](https://ndfilters.readthedocs.io/en/latest/_images/ndfilters.trimmed_mean_filter_0_2.png)
+The [mean filter](https://ndfilters.readthedocs.io/en/latest/_autosummary/ndfilters.mean_filter.html#ndfilters.mean_filter)
+calculates a multidimensional rolling mean for the given kernel shape.
+
+![mean filter](https://ndfilters.readthedocs.io/en/latest/_images/ndfilters.mean_filter_0_3.png)
+
+### Trimmed mean filter
+
+The  [trimmed mean filter](https://ndfilters.readthedocs.io/en/latest/_autosummary/ndfilters.trimmed_mean_filter.html#ndfilters.trimmed_mean_filter)
+is like the mean filter except it ignores a given portion of the dataset before calculating the mean at each pixel.
+
+![trimmed mean filter](https://ndfilters.readthedocs.io/en/latest/_images/ndfilters.trimmed_mean_filter_0_0.png)
