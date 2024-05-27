@@ -101,7 +101,7 @@ def _mean_filter_1d(
     return result
 
 
-@numba.njit(parallel=True)
+@numba.njit(parallel=True, cache=True)
 def _mean_filter_1d_numba(
     array: np.ndarray,
     size: int,
