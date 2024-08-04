@@ -104,6 +104,42 @@ def trimmed_mean_filter(
     return result
 
 
+@numba.njit
+def _trimmed_mean(
+    array: np.ndarray,
+    proportion: float = 0.25,
+) -> float:
+
+    kernel_size = array.size
+
+    lowercut = int(proportion * kernel_size)
+    uppercut = kernel_size - lowercut
+
+    for i in range(lowercut):
+        j_min = i
+        for j in range(i + 1, kernel_size):
+            if array[j] < array[j_min]:
+                j_min = j
+        if j_min != i:
+            array[i], array[j_min] = array[j_min], array[i]
+
+    for i in range(uppercut + 1):
+        j_max = i
+        for j in range(i + 1, kernel_size - lowercut):
+            if array[~j] > array[~j_max]:
+                j_max = j
+        if j_max != i:
+            array[~i], array[~j_max] = array[~j_max], array[~i]
+
+    sum_values = 0
+    num_values = 0
+    for i in range(lowercut, uppercut):
+        sum_values += array[i]
+        num_values += 1
+
+    return sum_values / num_values
+
+
 @numba.njit(parallel=True)
 def _mean_trimmed_1d(
     array: np.ndarray,
@@ -131,32 +167,7 @@ def _mean_trimmed_1d(
 
             values[kx] = array[jx,]
 
-        lowercut = int(proportion * kernel_size)
-        uppercut = kernel_size - lowercut
-
-        for i in range(lowercut):
-            j_min = i
-            for j in range(i + 1, kernel_size):
-                if values[j] < values[j_min]:
-                    j_min = j
-            if j_min != i:
-                values[i], values[j_min] = values[j_min], values[i]
-
-        for i in range(uppercut + 1):
-            j_max = i
-            for j in range(i + 1, kernel_size - lowercut):
-                if values[~j] > values[~j_max]:
-                    j_max = j
-            if j_max != i:
-                values[~i], values[~j_max] = values[~j_max], values[~i]
-
-        sum_values = 0
-        num_values = 0
-        for i in range(lowercut, uppercut):
-            sum_values += values[i]
-            num_values += 1
-
-        result[ix,] = sum_values / num_values
+        result[ix,] = _trimmed_mean(values, proportion=proportion)
 
     return result
 
@@ -200,32 +211,7 @@ def _mean_trimmed_2d(
                     index_flat = kx * kernel_shape_y + ky
                     values[index_flat] = array[jx, jy]
 
-            lowercut = int(proportion * kernel_size)
-            uppercut = kernel_size - lowercut
-
-            for i in range(lowercut):
-                j_min = i
-                for j in range(i + 1, kernel_size):
-                    if values[j] < values[j_min]:
-                        j_min = j
-                if j_min != i:
-                    values[i], values[j_min] = values[j_min], values[i]
-
-            for i in range(uppercut + 1):
-                j_max = i
-                for j in range(i + 1, kernel_size - lowercut):
-                    if values[~j] > values[~j_max]:
-                        j_max = j
-                if j_max != i:
-                    values[~i], values[~j_max] = values[~j_max], values[~i]
-
-            sum_values = 0
-            num_values = 0
-            for i in range(lowercut, uppercut):
-                sum_values += values[i]
-                num_values += 1
-
-            result[ix, iy] = sum_values / num_values
+            result[ix, iy] = _trimmed_mean(values, proportion=proportion)
 
     return result
 
@@ -280,31 +266,6 @@ def _mean_trimmed_3d(
 
                             values[index_flat] = array[jx, jy, jz]
 
-                lowercut = int(proportion * kernel_size)
-                uppercut = kernel_size - lowercut
-
-                for i in range(lowercut):
-                    j_min = i
-                    for j in range(i + 1, kernel_size):
-                        if values[j] < values[j_min]:
-                            j_min = j
-                    if j_min != i:
-                        values[i], values[j_min] = values[j_min], values[i]
-
-                for i in range(uppercut + 1):
-                    j_max = i
-                    for j in range(i + 1, kernel_size - lowercut):
-                        if values[~j] > values[~j_max]:
-                            j_max = j
-                    if j_max != i:
-                        values[~i], values[~j_max] = values[~j_max], values[~i]
-
-                sum_values = 0
-                num_values = 0
-                for i in range(lowercut, uppercut):
-                    sum_values += values[i]
-                    num_values += 1
-
-                result[ix, iy, iz] = sum_values / num_values
+                result[ix, iy, iz] = _trimmed_mean(values, proportion=proportion)
 
     return result
