@@ -191,7 +191,7 @@ def _generic_filter_2d(
             for iy in numba.prange(array_shape_y):
 
                 values = np.empty(shape=size)
-                mask = np.empty(shape=size, dtype=numba.types.bool_)
+                mask = np.empty(shape=size, dtype=np.bool_)
 
                 for kx in range(kernel_shape_x):
 
@@ -246,7 +246,7 @@ def _generic_filter_3d(
                 for iz in numba.prange(array_shape_z):
 
                     values = np.empty(shape=size)
-                    mask = np.empty(shape=size, dtype=numba.types.bool_)
+                    mask = np.empty(shape=size, dtype=np.bool_)
 
                     for kx in range(kernel_shape_x):
 
