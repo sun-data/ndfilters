@@ -1,5 +1,8 @@
+from typing import Literal, Callable
 import numpy as np
 import numba
+import astropy.units as u
+import ndfilters
 
 __all__ = [
     "trimmed_mean_filter",
@@ -7,10 +10,12 @@ __all__ = [
 
 
 def trimmed_mean_filter(
-    array: np.ndarray,
+    array: np.ndarray | u.Quantity,
     size: int | tuple[int, ...],
-    proportion: float = 0.25,
     axis: None | int | tuple[int, ...] = None,
+    where: bool | np.ndarray = True,
+    mode: Literal["mirror"] = "mirror",
+    proportion: float = 0.25,
 ) -> np.ndarray:
     """
     Calculate a multidimensional rolling trimmed mean.
@@ -21,11 +26,19 @@ def trimmed_mean_filter(
         The input array to be filtered
     size
         The shape of the kernel over which the trimmed mean will be calculated.
+    axis
+        The axes over which to apply the kernel.
+        Should either be a scalar or have the same number of items as `size`.
+        If :obj:`None` (the default) the kernel spans every axis of the array.
+    where
+        An optional mask that can be used to exclude parts of the array during
+        filtering.
+    mode
+        The method used to extend the input array beyond its boundaries.
+        See :func:`scipy.ndimage.generic_filter` for the definitions.
+        Currently, only "reflect" mode is supported.
     proportion
         The proportion to cut from the top and bottom of the distribution.
-    axis
-        The axes over which to apply the kernel. If :class:`None` the kernel
-        is applied to every axis.
 
     Returns
     -------
@@ -50,65 +63,24 @@ def trimmed_mean_filter(
         axs[1].imshow(img_filtered, cmap="gray");
 
     """
-
-    if axis is None:
-        axis = tuple(range(array.ndim))
-    axis = np.core.numeric.normalize_axis_tuple(axis, ndim=array.ndim)
-
-    if isinstance(size, int):
-        size = (size,) * len(axis)
-    else:
-        if len(size) != len(axis):
-            raise ValueError(
-                f"`size` should have the same number of elements, "
-                f"{len(size)}, as `axis`, {len(axis)}"
-            )
-    size = tuple(np.array(size)[np.argsort(axis)])
-
-    shape_orthogonal = tuple(
-        1 if ax in axis else array.shape[ax] for ax in range(array.ndim)
+    return ndfilters.generic_filter(
+        array=array,
+        function=_trimmed_mean,
+        size=size,
+        axis=axis,
+        where=where,
+        mode=mode,
+        args=(proportion,),
     )
-
-    result = np.zeros_like(array)
-
-    for index in np.ndindex(*shape_orthogonal):
-
-        index = list(index)
-        for ax in axis:
-            index[ax] = slice(None)
-        index = tuple(index)
-
-        if len(axis) == 1:
-            result[index] = _mean_trimmed_1d(
-                array=array[index],
-                size=size,
-                proportion=proportion,
-            )
-        elif len(axis) == 2:
-            result[index] = _mean_trimmed_2d(
-                array=array[index],
-                size=size,
-                proportion=proportion,
-            )
-        elif len(axis) == 3:
-            result[index] = _mean_trimmed_3d(
-                array=array[index],
-                size=size,
-                proportion=proportion,
-            )
-        else:
-            raise ValueError(
-                "Too many axis parameters, only 1-3 reduction axes are supported."
-            )
-
-    return result
 
 
 @numba.njit
 def _trimmed_mean(
     array: np.ndarray,
-    proportion: float = 0.25,
+    args: tuple[float],
 ) -> float:
+
+    (proportion,) = args
 
     kernel_size = array.size
 
@@ -138,134 +110,3 @@ def _trimmed_mean(
         num_values += 1
 
     return sum_values / num_values
-
-
-@numba.njit(parallel=True)
-def _mean_trimmed_1d(
-    array: np.ndarray,
-    size: tuple[int],
-    proportion: float,
-):
-    result = np.empty_like(array)
-
-    (array_shape_x,) = array.shape
-
-    (kernel_shape_x,) = size
-    kernel_size = kernel_shape_x
-
-    for ix in numba.prange(array_shape_x):
-
-        values = np.empty(kernel_size)
-        for kx in range(kernel_shape_x):
-            px = kx - kernel_shape_x // 2
-            jx = ix + px
-
-            if jx < 0:
-                jx = -jx
-            elif jx >= array_shape_x:
-                jx = ~(jx % array_shape_x + 1)
-
-            values[kx] = array[jx,]
-
-        result[ix,] = _trimmed_mean(values, proportion=proportion)
-
-    return result
-
-
-@numba.njit(parallel=True)
-def _mean_trimmed_2d(
-    array: np.ndarray,
-    size: tuple[int, int],
-    proportion: float,
-):
-    result = np.empty_like(array)
-
-    array_shape_x, array_shape_y = array.shape
-
-    kernel_shape_x, kernel_shape_y = size
-    kernel_size = kernel_shape_x * kernel_shape_y
-
-    for ix in numba.prange(array_shape_x):
-        for iy in numba.prange(array_shape_y):
-
-            values = np.empty(kernel_size)
-            for kx in range(kernel_shape_x):
-                for ky in range(kernel_shape_y):
-
-                    px = kx - kernel_shape_x // 2
-                    py = ky - kernel_shape_y // 2
-
-                    jx = ix + px
-                    jy = iy + py
-
-                    if jx < 0:
-                        jx = -jx
-                    elif jx >= array_shape_x:
-                        jx = ~(jx % array_shape_x + 1)
-
-                    if jy < 0:
-                        jy = -jy
-                    elif jy >= array_shape_y:
-                        jy = ~(jy % array_shape_y + 1)
-
-                    index_flat = kx * kernel_shape_y + ky
-                    values[index_flat] = array[jx, jy]
-
-            result[ix, iy] = _trimmed_mean(values, proportion=proportion)
-
-    return result
-
-
-@numba.njit(parallel=True)
-def _mean_trimmed_3d(
-    array: np.ndarray,
-    size: tuple[int, int, int],
-    proportion: float,
-):
-    result = np.empty_like(array)
-
-    array_shape_x, array_shape_y, array_shape_z = array.shape
-
-    kernel_shape_x, kernel_shape_y, kernel_shape_z = size
-    kernel_size = kernel_shape_x * kernel_shape_y * kernel_shape_z
-
-    for ix in numba.prange(array_shape_x):
-        for iy in numba.prange(array_shape_y):
-            for iz in numba.prange(array_shape_z):
-
-                values = np.empty(kernel_size)
-                for kx in range(kernel_shape_x):
-                    for ky in range(kernel_shape_y):
-                        for kz in range(kernel_shape_z):
-
-                            px = kx - kernel_shape_x // 2
-                            py = ky - kernel_shape_y // 2
-                            pz = kz - kernel_shape_z // 2
-
-                            jx = ix + px
-                            jy = iy + py
-                            jz = iz + pz
-
-                            if jx < 0:
-                                jx = -jx
-                            elif jx >= array_shape_x:
-                                jx = ~(jx % array_shape_x + 1)
-
-                            if jy < 0:
-                                jy = -jy
-                            elif jy >= array_shape_y:
-                                jy = ~(jy % array_shape_y + 1)
-
-                            if jz < 0:
-                                jz = -jz
-                            elif jz >= array_shape_z:
-                                jz = ~(jz % array_shape_z + 1)
-
-                            index_flat = kx * kernel_shape_y + ky
-                            index_flat = index_flat * kernel_shape_z + kz
-
-                            values[index_flat] = array[jx, jy, jz]
-
-                result[ix, iy, iz] = _trimmed_mean(values, proportion=proportion)
-
-    return result
