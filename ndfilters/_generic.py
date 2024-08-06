@@ -51,6 +51,7 @@ def generic_filter(
 
     .. jupyter-execute::
 
+        import numpy as np
         import matplotlib.pyplot as plt
         import scipy.datasets
         import ndfilters
