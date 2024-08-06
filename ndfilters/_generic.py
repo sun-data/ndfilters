@@ -63,7 +63,7 @@ def generic_filter(
         # Define a compiled function to apply at every
         # kernel footprint.
         @numba.njit
-        def function(a: np.ndarray: args: tuple) -> float:
+        def function(a: np.ndarray, args: tuple) -> float:
             return np.mean(a)
 
         # Filter the image using an arbitrary function.
