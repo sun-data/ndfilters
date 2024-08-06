@@ -90,7 +90,7 @@ def generic_filter(
                 f"{size=} should have the same number of elements as {axis=}."
             )
 
-    if mode != "mirror":
+    if mode != "mirror":  # pragma: nocover
         raise ValueError(f"Only mode='reflected' is supported, got {mode=}")
 
     axis_numba = ~np.arange(len(axis))[::-1]
@@ -109,7 +109,7 @@ def generic_filter(
         _generic_filter_nd = _generic_filter_2d
     elif len(axis) == 3:
         _generic_filter_nd = _generic_filter_3d
-    else:
+    else:  # pragma: nocover
         raise ValueError(f"Only 1-3 axes supported, got {axis=}.")
 
     result = _generic_filter_nd(
