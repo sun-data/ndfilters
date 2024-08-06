@@ -23,7 +23,7 @@ def _mean(a: np.ndarray, args: tuple = ()) -> float:
     argnames="function",
     argvalues=[
         _mean,
-    ]
+    ],
 )
 @pytest.mark.parametrize(
     argnames="size",
@@ -35,8 +35,8 @@ def _mean(a: np.ndarray, args: tuple = ()) -> float:
 @pytest.mark.parametrize(
     argnames="mode",
     argvalues=[
-        "mirror"
-    ]
+        "mirror",
+    ],
 )
 def test_generic_filter(
     array: np.ndarray | u.Quantity,
@@ -64,4 +64,3 @@ def test_generic_filter(
         assert result.unit == array.unit
     else:
         assert np.all(result == result_expected)
-
