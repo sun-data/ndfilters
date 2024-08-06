@@ -16,6 +16,7 @@ classifiers = [
 dependencies = [
     "numpy<2",
     "numba",
+    "astropy",
 ]
 dynamic = ["version"]
 
