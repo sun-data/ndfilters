@@ -150,7 +150,7 @@ def _generic_filter_1d(
         for ix in numba.prange(array_shape_x):
 
             values = np.empty(shape=size)
-            mask = np.empty(shape=size, dtype=numba.types.bool_)
+            mask = np.empty(shape=size, dtype=np.bool_)
 
             for kx in range(kernel_shape_x):
 
