@@ -1,4 +1,4 @@
-from typing import Literal, Callable
+from typing import Literal
 import numpy as np
 import numba
 import astropy.units as u
