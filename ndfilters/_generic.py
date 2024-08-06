@@ -52,6 +52,7 @@ def generic_filter(
     .. jupyter-execute::
 
         import numpy as np
+        import numba
         import matplotlib.pyplot as plt
         import scipy.datasets
         import ndfilters
@@ -59,9 +60,15 @@ def generic_filter(
         # Download a sample image
         img = scipy.datasets.ascent()
 
+        # Define a compiled function to apply at every
+        # kernel footprint.
+        @numba.njit
+        def function(a: np.ndarray: args: tuple) -> float:
+            return np.mean(a)
+
         # Filter the image using an arbitrary function.
         img_filtered = ndfilters.generic_filter(
-            func=np.mean,
+            function=function,
             array=img,
             size=21,
         )
