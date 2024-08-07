@@ -82,31 +82,12 @@ def _trimmed_mean(
 
     (proportion,) = args
 
-    kernel_size = array.size
+    nobs = array.size
+    lowercut = int(proportion * nobs)
+    uppercut = nobs - lowercut
+    if lowercut > uppercut:  # pragma: nocover
+        raise ValueError("Proportion too big.")
 
-    lowercut = int(proportion * kernel_size)
-    uppercut = kernel_size - lowercut
+    array = np.partition(array, (lowercut, uppercut - 1))
 
-    for i in range(lowercut):
-        j_min = i
-        for j in range(i + 1, kernel_size):
-            if array[j] < array[j_min]:
-                j_min = j
-        if j_min != i:
-            array[i], array[j_min] = array[j_min], array[i]
-
-    for i in range(uppercut + 1):
-        j_max = i
-        for j in range(i + 1, kernel_size - lowercut):
-            if array[~j] > array[~j_max]:
-                j_max = j
-        if j_max != i:
-            array[~i], array[~j_max] = array[~j_max], array[~i]
-
-    sum_values = 0
-    num_values = 0
-    for i in range(lowercut, uppercut):
-        sum_values += array[i]
-        num_values += 1
-
-    return sum_values / num_values
+    return np.mean(array[lowercut:uppercut])
