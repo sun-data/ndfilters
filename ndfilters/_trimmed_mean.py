@@ -85,7 +85,7 @@ def _trimmed_mean(
     nobs = array.size
     lowercut = int(proportion * nobs)
     uppercut = nobs - lowercut
-    if lowercut > uppercut:
+    if lowercut > uppercut:  # pragma: nocover
         raise ValueError("Proportion too big.")
 
     array = np.partition(array, (lowercut, uppercut - 1))
