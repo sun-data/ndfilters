@@ -36,13 +36,17 @@ def _mean(a: np.ndarray, args: tuple = ()) -> float:
     argnames="mode",
     argvalues=[
         "mirror",
+        "nearest",
+        "wrap",
+        "truncate",
+        pytest.param("foo", marks=pytest.mark.xfail),
     ],
 )
 def test_generic_filter(
     array: np.ndarray | u.Quantity,
     function: Callable[[np.ndarray], float],
     size: int | tuple[int, ...],
-    mode: Literal["mirror"],
+    mode: Literal["mirror", "nearest", "wrap", "truncate"],
 ):
     result = ndfilters.generic_filter(
         array=array,
@@ -50,17 +54,19 @@ def test_generic_filter(
         size=size,
         mode=mode,
     )
-
-    result_expected = scipy.ndimage.generic_filter(
-        input=array,
-        function=function,
-        size=size,
-        mode=mode,
-    )
-
     assert result.shape == array.shape
-    if isinstance(array, u.Quantity):
-        assert np.all(result.value == result_expected)
-        assert result.unit == array.unit
-    else:
-        assert np.all(result == result_expected)
+    assert result.sum() != 0
+
+    if mode != "truncate":
+        result_expected = scipy.ndimage.generic_filter(
+            input=array,
+            function=function,
+            size=size,
+            mode=mode,
+        )
+
+        if isinstance(array, u.Quantity):
+            assert np.all(result.value == result_expected)
+            assert result.unit == array.unit
+        else:
+            assert np.all(result == result_expected)

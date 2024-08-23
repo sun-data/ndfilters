@@ -1,3 +1,4 @@
+from typing import Literal
 import pytest
 import numpy as np
 import scipy.ndimage
@@ -20,6 +21,7 @@ import ndfilters
 @pytest.mark.parametrize(
     argnames="axis",
     argvalues=[
+        None,
         0,
         -1,
         (0,),
@@ -30,11 +32,29 @@ import ndfilters
         (2, 1, 0),
     ],
 )
+@pytest.mark.parametrize(
+    argnames="where",
+    argvalues=[
+        True,
+        False,
+    ],
+)
 @pytest.mark.parametrize("proportion", [0.25, 0.45])
+@pytest.mark.parametrize(
+    argnames="mode",
+    argvalues=[
+        "mirror",
+        "nearest",
+        "wrap",
+        "truncate",
+    ],
+)
 def test_trimmed_mean_filter(
     array: np.ndarray,
     size: int | tuple[int, ...],
     axis: None | int | tuple[int, ...],
+    where: bool | np.ndarray,
+    mode: Literal["mirror", "nearest", "wrap", "truncate"],
     proportion: float,
 ):
     if axis is None:
@@ -51,6 +71,7 @@ def test_trimmed_mean_filter(
                     size=size,
                     proportion=proportion,
                     axis=axis,
+                    where=where,
                 )
             return
 
@@ -66,6 +87,7 @@ def test_trimmed_mean_filter(
                 size=size,
                 proportion=proportion,
                 axis=axis,
+                where=where,
             )
         return
 
@@ -74,7 +96,18 @@ def test_trimmed_mean_filter(
         size=size,
         proportion=proportion,
         axis=axis,
+        where=where,
+        mode=mode,
     )
+
+    assert result.shape == array.shape
+    assert result.sum() != 0
+
+    if mode == "truncate":
+        return
+
+    if not np.all(where):
+        return
 
     size_scipy = [1] * array.ndim
     for i, ax in enumerate(axis_normalized):
@@ -84,7 +117,7 @@ def test_trimmed_mean_filter(
         input=array,
         function=scipy.stats.trim_mean,
         size=size_scipy,
-        mode="mirror",
+        mode=mode,
         extra_keywords=dict(proportiontocut=proportion),
     )
 

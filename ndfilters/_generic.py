@@ -14,7 +14,7 @@ def generic_filter(
     size: int | tuple[int, ...],
     axis: None | int | tuple[int, ...] = None,
     where: bool | np.ndarray = True,
-    mode: Literal["mirror"] = "mirror",
+    mode: Literal["mirror", "nearest", "wrap", "truncate"] = "mirror",
     args: tuple = (),
 ) -> np.ndarray:
     """
@@ -42,7 +42,8 @@ def generic_filter(
     mode
         The method used to extend the input array beyond its boundaries.
         See :func:`scipy.ndimage.generic_filter` for the definitions.
-        Currently, only "reflect" mode is supported.
+        Currently, only "mirror", "nearest", "wrap", and "truncate" modes are
+        supported.
     args
         Extra arguments to pass to function.
 
@@ -98,9 +99,6 @@ def generic_filter(
                 f"{size=} should have the same number of elements as {axis=}."
             )
 
-    if mode != "mirror":  # pragma: nocover
-        raise ValueError(f"Only mode='reflected' is supported, got {mode=}")
-
     axis_numba = ~np.arange(len(axis))[::-1]
 
     shape = array.shape
@@ -138,6 +136,30 @@ def generic_filter(
     return result
 
 
+@numba.njit
+def _rectify_index_lower(index: int, size: int, mode: str) -> int:
+    if mode == "mirror":
+        return -index
+    elif mode == "nearest":
+        return 0
+    elif mode == "wrap":
+        return index % size
+    else:  # pragma: nocover
+        raise ValueError
+
+
+@numba.njit
+def _rectify_index_upper(index: int, size: int, mode: str) -> int:
+    if mode == "mirror":
+        return ~(index % size + 1)
+    elif mode == "nearest":
+        return size - 1
+    elif mode == "wrap":
+        return index % size
+    else:  # pragma: nocover
+        raise ValueError
+
+
 @numba.njit(parallel=True)
 def _generic_filter_1d(
     array: np.ndarray,
@@ -157,8 +179,8 @@ def _generic_filter_1d(
 
         for ix in numba.prange(array_shape_x):
 
-            values = np.empty(shape=size)
-            mask = np.empty(shape=size, dtype=np.bool_)
+            values = np.zeros(shape=size)
+            mask = np.zeros(shape=size, dtype=np.bool_)
 
             for kx in range(kernel_shape_x):
 
@@ -166,9 +188,13 @@ def _generic_filter_1d(
                 jx = ix + px
 
                 if jx < 0:
-                    jx = -jx
+                    if mode == "truncate":
+                        continue
+                    jx = _rectify_index_lower(jx, array_shape_x, mode)
                 elif jx >= array_shape_x:
-                    jx = ~(jx % array_shape_x + 1)
+                    if mode == "truncate":
+                        continue
+                    jx = _rectify_index_upper(jx, array_shape_x, mode)
 
                 values[kx] = array[it, jx]
                 mask[kx] = where[it, jx]
@@ -198,8 +224,8 @@ def _generic_filter_2d(
         for ix in numba.prange(array_shape_x):
             for iy in numba.prange(array_shape_y):
 
-                values = np.empty(shape=size)
-                mask = np.empty(shape=size, dtype=np.bool_)
+                values = np.zeros(shape=size)
+                mask = np.zeros(shape=size, dtype=np.bool_)
 
                 for kx in range(kernel_shape_x):
 
@@ -207,9 +233,13 @@ def _generic_filter_2d(
                     jx = ix + px
 
                     if jx < 0:
-                        jx = -jx
+                        if mode == "truncate":
+                            continue
+                        jx = _rectify_index_lower(jx, array_shape_x, mode)
                     elif jx >= array_shape_x:
-                        jx = ~(jx % array_shape_x + 1)
+                        if mode == "truncate":
+                            continue
+                        jx = _rectify_index_upper(jx, array_shape_x, mode)
 
                     for ky in range(kernel_shape_y):
 
@@ -217,9 +247,13 @@ def _generic_filter_2d(
                         jy = iy + py
 
                         if jy < 0:
-                            jy = -jy
+                            if mode == "truncate":
+                                continue
+                            jy = _rectify_index_lower(jy, array_shape_y, mode)
                         elif jy >= array_shape_y:
-                            jy = ~(jy % array_shape_y + 1)
+                            if mode == "truncate":
+                                continue
+                            jy = _rectify_index_upper(jy, array_shape_y, mode)
 
                         values[kx, ky] = array[it, jx, jy]
                         mask[kx, ky] = where[it, jx, jy]
@@ -253,8 +287,8 @@ def _generic_filter_3d(
             for iy in numba.prange(array_shape_y):
                 for iz in numba.prange(array_shape_z):
 
-                    values = np.empty(shape=size)
-                    mask = np.empty(shape=size, dtype=np.bool_)
+                    values = np.zeros(shape=size)
+                    mask = np.zeros(shape=size, dtype=np.bool_)
 
                     for kx in range(kernel_shape_x):
 
@@ -262,9 +296,13 @@ def _generic_filter_3d(
                         jx = ix + px
 
                         if jx < 0:
-                            jx = -jx
+                            if mode == "truncate":
+                                continue
+                            jx = _rectify_index_lower(jx, array_shape_x, mode)
                         elif jx >= array_shape_x:
-                            jx = ~(jx % array_shape_x + 1)
+                            if mode == "truncate":
+                                continue
+                            jx = _rectify_index_upper(jx, array_shape_x, mode)
 
                         for ky in range(kernel_shape_y):
 
@@ -272,9 +310,13 @@ def _generic_filter_3d(
                             jy = iy + py
 
                             if jy < 0:
-                                jy = -jy
+                                if mode == "truncate":
+                                    continue
+                                jy = _rectify_index_lower(jy, array_shape_y, mode)
                             elif jy >= array_shape_y:
-                                jy = ~(jy % array_shape_y + 1)
+                                if mode == "truncate":
+                                    continue
+                                jy = _rectify_index_upper(jy, array_shape_y, mode)
 
                             for kz in range(kernel_shape_z):
 
@@ -282,9 +324,13 @@ def _generic_filter_3d(
                                 jz = iz + pz
 
                                 if jz < 0:
-                                    jz = -jz
+                                    if mode == "truncate":
+                                        continue
+                                    jz = _rectify_index_lower(jz, array_shape_z, mode)
                                 elif jz >= array_shape_z:
-                                    jz = ~(jz % array_shape_z + 1)
+                                    if mode == "truncate":
+                                        continue
+                                    jz = _rectify_index_upper(jz, array_shape_z, mode)
 
                                 values[kx, ky, kz] = array[it, jx, jy, jz]
                                 mask[kx, ky, kz] = where[it, jx, jy, jz]
