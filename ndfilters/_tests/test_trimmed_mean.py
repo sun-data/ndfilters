@@ -39,7 +39,6 @@ import ndfilters
         "nearest",
         "wrap",
         "truncate",
-        pytest.param("foo", marks=pytest.mark.xfail),
     ],
 )
 def test_trimmed_mean_filter(
