@@ -14,7 +14,7 @@ def trimmed_mean_filter(
     size: int | tuple[int, ...],
     axis: None | int | tuple[int, ...] = None,
     where: bool | np.ndarray = True,
-    mode: Literal["mirror"] = "mirror",
+    mode: Literal["mirror", "nearest", "wrap", "truncate"] = "mirror",
     proportion: float = 0.25,
 ) -> np.ndarray:
     """
@@ -36,7 +36,8 @@ def trimmed_mean_filter(
     mode
         The method used to extend the input array beyond its boundaries.
         See :func:`scipy.ndimage.generic_filter` for the definitions.
-        Currently, only "reflect" mode is supported.
+        Currently, only "mirror", "nearest", "wrap", and "truncate" modes are
+        supported.
     proportion
         The proportion to cut from the top and bottom of the distribution.
 
@@ -83,6 +84,8 @@ def _trimmed_mean(
     (proportion,) = args
 
     nobs = array.size
+    if nobs == 0:
+        return np.nan
     lowercut = int(proportion * nobs)
     uppercut = nobs - lowercut
     if lowercut > uppercut:  # pragma: nocover
