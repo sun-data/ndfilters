@@ -144,7 +144,7 @@ def _rectify_index_lower(index: int, size: int, mode: str) -> int:
         return 0
     elif mode == "wrap":
         return index % size
-    else:
+    else:  # pragma: nocover
         raise ValueError
 
 
@@ -156,7 +156,7 @@ def _rectify_index_upper(index: int, size: int, mode: str) -> int:
         return size - 1
     elif mode == "wrap":
         return index % size
-    else:
+    else:  # pragma: nocover
         raise ValueError
 
 
