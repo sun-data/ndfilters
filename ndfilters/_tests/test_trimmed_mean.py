@@ -70,6 +70,7 @@ def test_trimmed_mean_filter(
                     size=size,
                     proportion=proportion,
                     axis=axis,
+                    where=where,
                 )
             return
 
@@ -85,6 +86,7 @@ def test_trimmed_mean_filter(
                 size=size,
                 proportion=proportion,
                 axis=axis,
+                where=where,
             )
         return
 
@@ -93,6 +95,7 @@ def test_trimmed_mean_filter(
         size=size,
         proportion=proportion,
         axis=axis,
+        where=where,
         mode=mode,
     )
 
