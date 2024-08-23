@@ -85,6 +85,7 @@ def test_trimmed_mean_filter(
         size=size,
         proportion=proportion,
         axis=axis,
+        mode=mode,
     )
 
     assert result.shape == array.shape
@@ -100,7 +101,7 @@ def test_trimmed_mean_filter(
             input=array,
             function=scipy.stats.trim_mean,
             size=size_scipy,
-            mode="mirror",
+            mode=mode,
             extra_keywords=dict(proportiontocut=proportion),
         )
 
