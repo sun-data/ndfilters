@@ -31,6 +31,13 @@ import ndfilters
         (2, 1, 0),
     ],
 )
+@pytest.mark.parametrize(
+    argnames="where",
+    argvalues=[
+        True,
+        False,
+    ]
+)
 @pytest.mark.parametrize("proportion", [0.25, 0.45])
 @pytest.mark.parametrize(
     argnames="mode",
@@ -45,6 +52,7 @@ def test_trimmed_mean_filter(
     array: np.ndarray,
     size: int | tuple[int, ...],
     axis: None | int | tuple[int, ...],
+    where: bool | np.ndarray,
     mode: Literal["mirror", "nearest", "wrap", "truncate"],
     proportion: float,
 ):
@@ -91,18 +99,22 @@ def test_trimmed_mean_filter(
     assert result.shape == array.shape
     assert result.sum() != 0
 
-    if mode != "truncate":
+    if mode == "truncate":
+        return
 
-        size_scipy = [1] * array.ndim
-        for i, ax in enumerate(axis_normalized):
-            size_scipy[ax] = size_normalized[i]
+    if not np.all(where):
+        return
 
-        expected = scipy.ndimage.generic_filter(
-            input=array,
-            function=scipy.stats.trim_mean,
-            size=size_scipy,
-            mode=mode,
-            extra_keywords=dict(proportiontocut=proportion),
-        )
+    size_scipy = [1] * array.ndim
+    for i, ax in enumerate(axis_normalized):
+        size_scipy[ax] = size_normalized[i]
 
-        assert np.allclose(result, expected)
+    expected = scipy.ndimage.generic_filter(
+        input=array,
+        function=scipy.stats.trim_mean,
+        size=size_scipy,
+        mode=mode,
+        extra_keywords=dict(proportiontocut=proportion),
+    )
+
+    assert np.allclose(result, expected)
