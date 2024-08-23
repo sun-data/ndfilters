@@ -36,7 +36,7 @@ import ndfilters
     argvalues=[
         True,
         False,
-    ]
+    ],
 )
 @pytest.mark.parametrize("proportion", [0.25, 0.45])
 @pytest.mark.parametrize(
