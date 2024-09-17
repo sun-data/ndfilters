@@ -25,7 +25,7 @@ pip install ndfilters
 The [mean filter](https://ndfilters.readthedocs.io/en/latest/_autosummary/ndfilters.mean_filter.html#ndfilters.mean_filter)
 calculates a multidimensional rolling mean for the given kernel shape.
 
-![mean filter](https://ndfilters.readthedocs.io/en/latest/_images/ndfilters.mean_filter_0_2.png)
+![mean filter](https://ndfilters.readthedocs.io/en/latest/_images/ndfilters.mean_filter_0_0.png)
 
 ### Trimmed mean filter
 
@@ -33,3 +33,10 @@ The  [trimmed mean filter](https://ndfilters.readthedocs.io/en/latest/_autosumma
 is like the mean filter except it ignores a given portion of the dataset before calculating the mean at each pixel.
 
 ![trimmed mean filter](https://ndfilters.readthedocs.io/en/latest/_images/ndfilters.trimmed_mean_filter_0_0.png)
+
+### Variance filter
+
+The [variance filter](https://ndfilters.readthedocs.io/en/latest/_autosummary/ndfilters.variance_filter.html#ndfilters.variance_filter)
+calculates the rolling variance for the given kernel shape.
+
+![variance filter](https://ndfilters.readthedocs.io/en/latest/_images/ndfilters.variance_filter_0_0.png)
