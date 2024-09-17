@@ -1,3 +1,4 @@
+from typing import Literal
 import pytest
 import numpy as np
 import scipy.ndimage
@@ -32,15 +33,25 @@ import ndfilters
         (2, 1, 0),
     ],
 )
+@pytest.mark.parametrize(
+    argnames="mode",
+    argvalues=[
+        "mirror",
+        "nearest",
+        "wrap",
+    ],
+)
 def test_mean_filter(
     array: np.ndarray,
     size: int | tuple[int, ...],
     axis: None | int | tuple[int, ...],
+    mode: Literal["mirror", "nearest", "wrap", "truncate"],
 ):
     kwargs = dict(
         array=array,
         size=size,
         axis=axis,
+        mode=mode,
     )
 
     if axis is None:
@@ -74,11 +85,7 @@ def test_mean_filter(
     expected = scipy.ndimage.uniform_filter(
         input=array,
         size=size_scipy,
-        mode="constant",
-    ) / scipy.ndimage.uniform_filter(
-        input=np.ones(array.shape),
-        size=size_scipy,
-        mode="constant",
+        mode=mode,
     )
 
     if isinstance(result, u.Quantity):
