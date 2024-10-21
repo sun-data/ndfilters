@@ -84,8 +84,6 @@ def _trimmed_mean(
     (proportion,) = args
 
     nobs = array.size
-    if nobs == 0:
-        return np.nan
     lowercut = int(proportion * nobs)
     uppercut = nobs - lowercut
     if lowercut > uppercut:  # pragma: nocover
