@@ -33,13 +33,6 @@ def _mean(a: np.ndarray, args: tuple = ()) -> float:
     ],
 )
 @pytest.mark.parametrize(
-    argnames="where",
-    argvalues=[
-        True,
-        False,
-    ],
-)
-@pytest.mark.parametrize(
     argnames="mode",
     argvalues=[
         "mirror",
@@ -53,20 +46,18 @@ def test_generic_filter(
     array: np.ndarray | u.Quantity,
     function: Callable[[np.ndarray], float],
     size: int | tuple[int, ...],
-    where: bool | np.ndarray,
     mode: Literal["mirror", "nearest", "wrap", "truncate"],
 ):
     result = ndfilters.generic_filter(
         array=array,
         function=function,
         size=size,
-        where=where,
         mode=mode,
     )
     assert result.shape == array.shape
     assert result.sum() != 0
 
-    if mode != "truncate" and where:
+    if mode != "truncate":
         result_expected = scipy.ndimage.generic_filter(
             input=array,
             function=function,
