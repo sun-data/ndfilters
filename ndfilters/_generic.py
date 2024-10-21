@@ -199,7 +199,10 @@ def _generic_filter_1d(
                 values[kx] = array[it, jx]
                 mask[kx] = where[it, jx]
 
-            result[it, ix] = function(values[mask], args)
+            if np.any(mask):
+                result[it, ix] = function(values[mask], args)
+            else:
+                result[it, ix] = np.nan
 
     return result
 
@@ -261,7 +264,10 @@ def _generic_filter_2d(
                 values = values.reshape(-1)
                 mask = mask.reshape(-1)
 
-                result[it, ix, iy] = function(values[mask], args)
+                if np.any(mask):
+                    result[it, ix, iy] = function(values[mask], args)
+                else:
+                    result[it, ix, iy] = np.nan
 
     return result
 
@@ -338,6 +344,9 @@ def _generic_filter_3d(
                     values = values.reshape(-1)
                     mask = mask.reshape(-1)
 
-                    result[it, ix, iy, iz] = function(values[mask], args)
+                    if np.any(mask):
+                        result[it, ix, iy, iz] = function(values[mask], args)
+                    else:
+                        result[it, ix, iy, iz] = np.nan
 
     return result
