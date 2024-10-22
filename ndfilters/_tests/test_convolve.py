@@ -15,9 +15,9 @@ import ndfilters
 @pytest.mark.parametrize(
     argnames="kernel,axis",
     argvalues=[
-        (np.random.random((2,)), ~0),
-        (np.random.random((2, 3)), (~1, ~0)),
-        (np.random.random((2, 3, 4)), None),
+        (np.random.random((3,)), ~0),
+        (np.random.random((3, 4)), (~1, ~0)),
+        (np.random.random((3, 4, 5)), None),
     ],
 )
 @pytest.mark.parametrize(
