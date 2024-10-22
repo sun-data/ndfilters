@@ -17,7 +17,7 @@ import ndfilters
     argvalues=[
         (np.random.random((2,)), ~0),
         (np.random.random((2, 3)), (~1, ~0)),
-        (np.random.random((2, 3, 4)), (0, 1, ~0)),
+        (np.random.random((2, 3, 4)), None),
     ],
 )
 @pytest.mark.parametrize(
@@ -32,6 +32,7 @@ import ndfilters
         "mirror",
         "nearest",
         "wrap",
+        "truncate",
     ],
 )
 def test_convolve(
@@ -51,6 +52,11 @@ def test_convolve(
     )
 
     result = ndfilters.convolve(**kwargs)
+
+    assert result.sum() != 0
+
+    if mode == "truncate":
+        return
 
     axis_ = axis
     if axis_ is None:
