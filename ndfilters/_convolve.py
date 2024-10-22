@@ -1,4 +1,4 @@
-from typing import Callable, Literal
+from typing import Literal
 import numpy as np
 import numba
 import astropy.units as u
@@ -8,82 +8,41 @@ from ._indices import (
 )
 
 __all__ = [
-    "generic_filter",
+    "convolve",
 ]
 
 
-def generic_filter(
+def convolve(
     array: np.ndarray | u.Quantity,
-    function: Callable[[np.ndarray, tuple], float],
-    size: int | tuple[int, ...],
+    kernel: np.ndarray | u.Quantity,
     axis: None | int | tuple[int, ...] = None,
     where: bool | np.ndarray = True,
     mode: Literal["mirror", "nearest", "wrap", "truncate"] = "mirror",
-    args: tuple = (),
 ) -> np.ndarray:
     """
-    Filter a multidimensional array using an arbitrary compiled function.
+    Multidimensional convolution of an array with a given kernel.
+
+    This function differs from :func:`scipy.ndimage.convolve` and
+    :func:`astropy.convolution.convolve` because it implements a vectorized
+    convolution operation where the kernel is allowed to vary along axes
+    orthogonal to the convolution axes.
 
     Parameters
     ----------
     array
-        The input array to be filtered
-    function
-        The function to applied to each kernel footprint.
-        This is usually either a Numpy reduction function like :func:`numpy.mean`,
-        or a function compiled using :func:`numba.njit`.
-        This function must accept a 1D array and a tuple of extra arguments as
-        input and return a scalar.
-    size
-        The shape of the kernel over which the trimmed mean will be calculated.
+        The input array to be convolved.
+    kernel
+        The convolution kernel.
+        Any non-convolution axes must be broadcastable with `array`.
     axis
-        The axes over which to apply the kernel.
-        Should either be a scalar or have the same number of items as `size`.
-        If :obj:`None` (the default) the kernel spans every axis of the array.
+        The axes of `array` over which to apply the kernel.
+        If :obj:`None`, it is assumed that the convolution is applied to all
+        the axes of `array`.
     where
-        An optional mask that can be used to exclude parts of the array during
-        filtering.
+        An optional mask that can be used to exclude elements of `array`
+        during the convolution.
     mode
-        The method used to extend the input array beyond its boundaries.
-        See :func:`scipy.ndimage.generic_filter` for the definitions.
-        Currently, only "mirror", "nearest", "wrap", and "truncate" modes are
-        supported.
-    args
-        Extra arguments to pass to function.
-
-    Examples
-    --------
-
-    .. jupyter-execute::
-
-        import numpy as np
-        import numba
-        import matplotlib.pyplot as plt
-        import scipy.datasets
-        import ndfilters
-
-        # Download a sample image
-        img = scipy.datasets.ascent()
-
-        # Define a compiled function to apply at every
-        # kernel footprint.
-        @numba.njit
-        def function(a: np.ndarray, args: tuple) -> float:
-            return np.mean(a)
-
-        # Filter the image using an arbitrary function.
-        img_filtered = ndfilters.generic_filter(
-            function=function,
-            array=img,
-            size=21,
-        )
-
-        fig, axs = plt.subplots(ncols=2, sharex=True, sharey=True)
-        axs[0].set_title("original image");
-        axs[0].imshow(img, cmap="gray");
-        axs[1].set_title("filtered image");
-        axs[1].imshow(img_filtered, cmap="gray");
-
+        The method used to extend `array` beyond its boundaries.
     """
     if isinstance(array, u.Quantity):
         unit = array.unit
@@ -93,42 +52,46 @@ def generic_filter(
 
     if axis is None:
         axis = tuple(range(array.ndim))
-    axis = np.core.numeric.normalize_axis_tuple(axis, ndim=array.ndim)
+    axis = np.array(axis)
+    axis = np.core.numeric.normalize_axis_tuple(~axis, ndim=array.ndim)
+    axis = ~np.array(axis)
 
-    if isinstance(size, int):
-        size = (size,) * len(axis)
-    else:
-        if len(size) != len(axis):
-            raise ValueError(
-                f"{size=} should have the same number of elements as {axis=}."
-            )
+    shape_kernel = list(kernel.shape)
+    for ax in axis:
+        shape_kernel[ax] = 1
 
-    axis_numba = ~np.arange(len(axis))[::-1]
+    shape = np.broadcast_shapes(array.shape, shape_kernel, np.shape(where))
 
-    shape = array.shape
-    shape_numba = tuple(shape[ax] for ax in axis)
+    shape_kernel = list(shape)
+    for ax in axis:
+        shape_kernel[ax] = kernel.shape[ax]
 
+    array = np.broadcast_to(array, shape)
+    kernel = np.broadcast_to(kernel, shape_kernel)
     where = np.broadcast_to(where, shape)
 
+    axis_numba = ~np.arange(len(axis))[::-1]
+    shape_numba = tuple(shape[ax] for ax in axis)
+    shape_kernel_numba = tuple(shape_kernel[ax] for ax in axis)
+
     array_ = np.moveaxis(array, axis, axis_numba)
+    kernel_ = np.moveaxis(kernel, axis, axis_numba)
     where_ = np.moveaxis(where, axis, axis_numba)
 
     if len(axis) == 1:
-        _generic_filter_nd = _generic_filter_1d
+        _convolve_nd = _convolve_1d
     elif len(axis) == 2:
-        _generic_filter_nd = _generic_filter_2d
+        _convolve_nd = _convolve_2d
     elif len(axis) == 3:
-        _generic_filter_nd = _generic_filter_3d
+        _convolve_nd = _convolve_3d
     else:  # pragma: nocover
         raise ValueError(f"Only 1-3 axes supported, got {axis=}.")
 
-    result = _generic_filter_nd(
+    result = _convolve_nd(
         array=array_.reshape(-1, *shape_numba),
-        function=function,
-        size=size,
+        kernel=kernel_.reshape(-1, *shape_kernel_numba),
         where=where_.reshape(-1, *shape_numba),
         mode=mode,
-        args=args,
     )
 
     result = result.reshape(array_.shape)
@@ -141,30 +104,27 @@ def generic_filter(
 
 
 @numba.njit(parallel=True)
-def _generic_filter_1d(
+def _convolve_1d(
     array: np.ndarray,
-    function: Callable[[np.ndarray, tuple], float],
-    size: tuple[int],
+    kernel: np.ndarray,
     where: np.ndarray,
     mode: str,
-    args: tuple,
 ):
-    result = np.empty_like(array)
+    result = np.zeros_like(array)
 
     array_shape_t, array_shape_x = array.shape
 
-    (kernel_shape_x,) = size
+    _, kernel_shape_x = kernel.shape
 
     for it in range(array_shape_t):
 
         for ix in numba.prange(array_shape_x):
 
-            values = np.zeros(shape=size)
-            mask = np.zeros(shape=size, dtype=np.bool_)
+            r = 0
 
             for kx in range(kernel_shape_x):
 
-                px = kx - kernel_shape_x // 2
+                px = kx - (kernel_shape_x - 1) // 2
                 jx = ix + px
 
                 if jx < 0:
@@ -176,43 +136,39 @@ def _generic_filter_1d(
                         continue
                     jx = rectify_index_upper(jx, array_shape_x, mode)
 
-                values[kx] = array[it, jx]
-                mask[kx] = where[it, jx]
+                if where[it, jx]:
+                    array_tx = array[it, jx]
+                    kernel_tx = kernel[it, ~kx]
+                    r += array_tx * kernel_tx
 
-            if np.any(mask):
-                result[it, ix] = function(values[mask], args)
-            else:
-                result[it, ix] = np.nan
+            result[it, ix] = r
 
     return result
 
 
 @numba.njit(parallel=True)
-def _generic_filter_2d(
+def _convolve_2d(
     array: np.ndarray,
-    function: Callable[[np.ndarray, tuple], float],
-    size: tuple[int, int],
+    kernel: np.ndarray,
     where: np.ndarray,
     mode: str,
-    args: tuple,
 ):
     result = np.empty_like(array)
 
     array_shape_t, array_shape_x, array_shape_y = array.shape
 
-    kernel_shape_x, kernel_shape_y = size
+    _, kernel_shape_x, kernel_shape_y = kernel.shape
 
     for it in range(array_shape_t):
 
         for ix in numba.prange(array_shape_x):
             for iy in numba.prange(array_shape_y):
 
-                values = np.zeros(shape=size)
-                mask = np.zeros(shape=size, dtype=np.bool_)
+                r = 0
 
                 for kx in range(kernel_shape_x):
 
-                    px = kx - kernel_shape_x // 2
+                    px = kx - (kernel_shape_x - 1) // 2
                     jx = ix + px
 
                     if jx < 0:
@@ -226,7 +182,7 @@ def _generic_filter_2d(
 
                     for ky in range(kernel_shape_y):
 
-                        py = ky - kernel_shape_y // 2
+                        py = ky - (kernel_shape_y - 1) // 2
                         jy = iy + py
 
                         if jy < 0:
@@ -238,34 +194,28 @@ def _generic_filter_2d(
                                 continue
                             jy = rectify_index_upper(jy, array_shape_y, mode)
 
-                        values[kx, ky] = array[it, jx, jy]
-                        mask[kx, ky] = where[it, jx, jy]
+                        if where[it, jx, jy]:
+                            array_txy = array[it, jx, jy]
+                            kernel_txy = kernel[it, ~kx, ~ky]
+                            r += array_txy * kernel_txy
 
-                values = values.reshape(-1)
-                mask = mask.reshape(-1)
-
-                if np.any(mask):
-                    result[it, ix, iy] = function(values[mask], args)
-                else:
-                    result[it, ix, iy] = np.nan
+                result[it, ix, iy] = r
 
     return result
 
 
 @numba.njit(parallel=True)
-def _generic_filter_3d(
+def _convolve_3d(
     array: np.ndarray,
-    function: Callable[[np.ndarray, tuple], float],
-    size: tuple[int, int, int],
+    kernel: np.ndarray,
     where: np.ndarray,
     mode: str,
-    args: tuple,
 ):
     result = np.empty_like(array)
 
     array_shape_t, array_shape_x, array_shape_y, array_shape_z = array.shape
 
-    kernel_shape_x, kernel_shape_y, kernel_shape_z = size
+    _, kernel_shape_x, kernel_shape_y, kernel_shape_z = kernel.shape
 
     for it in range(array_shape_t):
 
@@ -273,12 +223,11 @@ def _generic_filter_3d(
             for iy in numba.prange(array_shape_y):
                 for iz in numba.prange(array_shape_z):
 
-                    values = np.zeros(shape=size)
-                    mask = np.zeros(shape=size, dtype=np.bool_)
+                    r = 0
 
                     for kx in range(kernel_shape_x):
 
-                        px = kx - kernel_shape_x // 2
+                        px = kx - (kernel_shape_x - 1) // 2
                         jx = ix + px
 
                         if jx < 0:
@@ -292,7 +241,7 @@ def _generic_filter_3d(
 
                         for ky in range(kernel_shape_y):
 
-                            py = ky - kernel_shape_y // 2
+                            py = ky - (kernel_shape_y - 1) // 2
                             jy = iy + py
 
                             if jy < 0:
@@ -306,7 +255,7 @@ def _generic_filter_3d(
 
                             for kz in range(kernel_shape_z):
 
-                                pz = kz - kernel_shape_z // 2
+                                pz = kz - (kernel_shape_z - 1) // 2
                                 jz = iz + pz
 
                                 if jz < 0:
@@ -318,15 +267,11 @@ def _generic_filter_3d(
                                         continue
                                     jz = rectify_index_upper(jz, array_shape_z, mode)
 
-                                values[kx, ky, kz] = array[it, jx, jy, jz]
-                                mask[kx, ky, kz] = where[it, jx, jy, jz]
+                                if where[it, jx, jy, jz]:
+                                    array_txyz = array[it, jx, jy, jz]
+                                    kernel_txyz = kernel[it, ~kx, ~ky, ~kz]
+                                    r += array_txyz * kernel_txyz
 
-                    values = values.reshape(-1)
-                    mask = mask.reshape(-1)
-
-                    if np.any(mask):
-                        result[it, ix, iy, iz] = function(values[mask], args)
-                    else:
-                        result[it, ix, iy, iz] = np.nan
+                    result[it, ix, iy, iz] = r
 
     return result
