@@ -43,6 +43,57 @@ def convolve(
         during the convolution.
     mode
         The method used to extend `array` beyond its boundaries.
+
+    Examples
+    --------
+
+    Apply a Gaussian blur to a sample image.
+
+    .. jupyter-execute::
+
+        import numpy as np
+        import matplotlib.pyplot as plt
+        import scipy
+        import ndfilters
+
+        # Define arbitrary coordinate system
+        # of the kenrel
+        x = np.linspace(-1, 1, 51)
+        y = np.linspace(-1, 1, 51)
+        x, y = np.meshgrid(x, y)
+
+        # Rotate the coordinate system
+        t = np.pi / 4
+        u = x * np.cos(t) - y * np.sin(t)
+        v = x * np.sin(t) + y * np.cos(t)
+
+        # Define the standard deviation
+        # in each dimension of the 2D kernel
+        sigma_u = 0.5
+        sigma_v = 0.1
+
+        # Compute a 2D Gaussian kernel
+        kernel_u = np.exp(-np.square(u / sigma_u) / 2)
+        kernel_v = np.exp(-np.square(v / sigma_v) / 2)
+        kernel = kernel_u * kernel_v
+        kernel = kernel / kernel.sum()
+
+        # Download a sample image
+        img = scipy.datasets.ascent()
+
+        # Convolve the sample image with the kernel
+        img_convolved = ndfilters.convolve(
+            array=img,
+            kernel=kernel,
+        )
+
+        # Plot the results
+        fig, axs = plt.subplots(ncols=2, sharex=True, sharey=True)
+        axs[0].set_title("original image");
+        axs[0].imshow(img, cmap="gray");
+        axs[1].set_title("convolved image");
+        axs[1].imshow(img_convolved, cmap="gray");
+
     """
     if isinstance(array, u.Quantity):
         unit = array.unit
