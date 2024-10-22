@@ -93,7 +93,6 @@ def convolve(
         axs[0].imshow(img, cmap="gray");
         axs[1].set_title("convolved image");
         axs[1].imshow(img_convolved, cmap="gray");
-
     """
     if isinstance(array, u.Quantity):
         unit = array.unit
@@ -189,7 +188,7 @@ def _convolve_1d(
 
                 if where[it, jx]:
                     array_tx = array[it, jx]
-                    kernel_tx = kernel[it, kx]
+                    kernel_tx = kernel[it, ~kx]
                     r += array_tx * kernel_tx
 
             result[it, ix] = r
@@ -247,7 +246,7 @@ def _convolve_2d(
 
                         if where[it, jx, jy]:
                             array_txy = array[it, jx, jy]
-                            kernel_txy = kernel[it, kx, ky]
+                            kernel_txy = kernel[it, ~kx, ~ky]
                             r += array_txy * kernel_txy
 
                 result[it, ix, iy] = r
@@ -320,7 +319,7 @@ def _convolve_3d(
 
                                 if where[it, jx, jy, jz]:
                                     array_txyz = array[it, jx, jy, jz]
-                                    kernel_txyz = kernel[it, kx, ky, kz]
+                                    kernel_txyz = kernel[it, ~kx, ~ky, ~kz]
                                     r += array_txyz * kernel_txyz
 
                     result[it, ix, iy, iz] = r
