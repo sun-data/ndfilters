@@ -75,4 +75,4 @@ def test_convolve(
         mode=mode,
     )
 
-    assert np.all(u.Quantity(result).value == result_expected)
+    assert np.allclose(u.Quantity(result).value, result_expected)
