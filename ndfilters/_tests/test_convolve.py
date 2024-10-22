@@ -24,7 +24,7 @@ import ndfilters
     argnames="where",
     argvalues=[
         True,
-    ]
+    ],
 )
 @pytest.mark.parametrize(
     argnames="mode",
