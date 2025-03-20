@@ -61,8 +61,8 @@ def test_variance_filter(
             axis_normalized = np.core.numeric.normalize_axis_tuple(
                 axis, ndim=array.ndim
             )
-        except np.AxisError:
-            with pytest.raises(np.AxisError):
+        except np.exceptions.AxisError:
+            with pytest.raises(np.exceptions.AxisError):
                 ndfilters.variance_filter(**kwargs)
             return
 

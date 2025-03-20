@@ -64,8 +64,8 @@ def test_trimmed_mean_filter(
             axis_normalized = np.core.numeric.normalize_axis_tuple(
                 axis, ndim=array.ndim
             )
-        except np.AxisError:
-            with pytest.raises(np.AxisError):
+        except np.exceptions.AxisError:
+            with pytest.raises(np.exceptions.AxisError):
                 ndfilters.trimmed_mean_filter(
                     array=array,
                     size=size,
