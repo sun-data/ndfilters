@@ -93,7 +93,7 @@ def generic_filter(
 
     if axis is None:
         axis = tuple(range(array.ndim))
-    axis = np.core.numeric.normalize_axis_tuple(axis, ndim=array.ndim)
+    axis = np.lib.array_utils.normalize_axis_tuple(axis, ndim=array.ndim)
 
     if isinstance(size, int):
         size = (size,) * len(axis)
