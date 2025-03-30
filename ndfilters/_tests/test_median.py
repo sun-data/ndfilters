@@ -63,7 +63,7 @@ def test_median_filter(
             )
         except np.exceptions.AxisError:
             with pytest.raises(np.exceptions.AxisError):
-                ndfilters.mean_filter(**kwargs)
+                ndfilters.median_filter(**kwargs)
             return
 
     if isinstance(size, int):
@@ -73,7 +73,7 @@ def test_median_filter(
 
     if len(size_normalized) != len(axis_normalized):
         with pytest.raises(ValueError):
-            ndfilters.mean_filter(**kwargs)
+            ndfilters.median_filter(**kwargs)
         return
 
     result = ndfilters.median_filter(**kwargs)
@@ -82,8 +82,9 @@ def test_median_filter(
     for i, ax in enumerate(axis_normalized):
         size_scipy[ax] = size_normalized[i]
 
-    expected = scipy.ndimage.median_filter(
+    expected = scipy.ndimage.generic_filter(
         input=array,
+        function=np.median,
         size=size_scipy,
         mode=mode,
     )
