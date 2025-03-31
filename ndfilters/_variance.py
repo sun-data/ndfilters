@@ -71,7 +71,7 @@ def variance_filter(
     )
 
 
-@numba.njit
+@numba.njit(cache=True)
 def _variance(
     array: np.ndarray,
     args: tuple[float],

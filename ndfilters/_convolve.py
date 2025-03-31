@@ -153,7 +153,7 @@ def convolve(
     return result
 
 
-@numba.njit(parallel=True)
+@numba.njit(parallel=True, cache=True)
 def _convolve_1d(
     array: np.ndarray,
     kernel: np.ndarray,
@@ -196,7 +196,7 @@ def _convolve_1d(
     return result
 
 
-@numba.njit(parallel=True)
+@numba.njit(parallel=True, cache=True)
 def _convolve_2d(
     array: np.ndarray,
     kernel: np.ndarray,
@@ -254,7 +254,7 @@ def _convolve_2d(
     return result
 
 
-@numba.njit(parallel=True)
+@numba.njit(parallel=True, cache=True)
 def _convolve_3d(
     array: np.ndarray,
     kernel: np.ndarray,

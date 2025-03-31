@@ -6,7 +6,7 @@ __all__ = [
 ]
 
 
-@numba.njit
+@numba.njit(cache=True)
 def rectify_index_lower(index: int, size: int, mode: str) -> int:
     if mode == "mirror":
         return -index
@@ -18,7 +18,7 @@ def rectify_index_lower(index: int, size: int, mode: str) -> int:
         raise ValueError
 
 
-@numba.njit
+@numba.njit(cache=True)
 def rectify_index_upper(index: int, size: int, mode: str) -> int:
     if mode == "mirror":
         return ~(index % size + 1)

@@ -71,7 +71,7 @@ def median_filter(
     )
 
 
-@numba.njit
+@numba.njit(cache=True)
 def _median(
     array: np.ndarray,
     args: tuple[float],
