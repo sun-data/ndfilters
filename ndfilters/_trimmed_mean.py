@@ -75,7 +75,7 @@ def trimmed_mean_filter(
     )
 
 
-@numba.njit
+@numba.njit(cache=True)
 def _trimmed_mean(
     array: np.ndarray,
     args: tuple[float],

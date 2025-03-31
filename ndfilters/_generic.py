@@ -140,7 +140,7 @@ def generic_filter(
     return result
 
 
-@numba.njit(parallel=True)
+@numba.njit(parallel=True, cache=True)
 def _generic_filter_1d(
     array: np.ndarray,
     function: Callable[[np.ndarray, tuple], float],
@@ -187,7 +187,7 @@ def _generic_filter_1d(
     return result
 
 
-@numba.njit(parallel=True)
+@numba.njit(parallel=True, cache=True)
 def _generic_filter_2d(
     array: np.ndarray,
     function: Callable[[np.ndarray, tuple], float],
@@ -252,7 +252,7 @@ def _generic_filter_2d(
     return result
 
 
-@numba.njit(parallel=True)
+@numba.njit(parallel=True, cache=True)
 def _generic_filter_3d(
     array: np.ndarray,
     function: Callable[[np.ndarray, tuple], float],
