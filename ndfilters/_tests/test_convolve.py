@@ -63,7 +63,7 @@ def test_convolve(
     axis_ = axis
     if axis_ is None:
         axis_ = np.arange(array.ndim)
-    axis_ = np.core.numeric.normalize_axis_tuple(axis_, ndim=array.ndim)
+    axis_ = np.lib.array_utils.normalize_axis_tuple(axis_, ndim=array.ndim)
 
     axis_orthogonal = [ax for ax in range(array.ndim) if ax not in axis_]
 

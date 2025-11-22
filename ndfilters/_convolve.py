@@ -103,7 +103,7 @@ def convolve(
     if axis is None:
         axis = tuple(range(array.ndim))
     axis = np.array(axis)
-    axis = np.core.numeric.normalize_axis_tuple(~axis, ndim=array.ndim)
+    axis = np.lib.array_utils.normalize_axis_tuple(~axis, ndim=array.ndim)
     axis = ~np.array(axis)
 
     shape_kernel = list(kernel.shape)

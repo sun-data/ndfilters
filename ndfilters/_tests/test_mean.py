@@ -58,7 +58,7 @@ def test_mean_filter(
         axis_normalized = tuple(range(array.ndim))
     else:
         try:
-            axis_normalized = np.core.numeric.normalize_axis_tuple(
+            axis_normalized = np.lib.array_utils.normalize_axis_tuple(
                 axis, ndim=array.ndim
             )
         except np.exceptions.AxisError:
