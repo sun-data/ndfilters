@@ -7,8 +7,25 @@
 [![Documentation Status](https://readthedocs.org/projects/ndfilters/badge/?version=latest)](https://ndfilters.readthedocs.io/en/latest/?badge=latest)
 [![PyPI version](https://badge.fury.io/py/ndfilters.svg)](https://badge.fury.io/py/ndfilters)
 
-Similar to the filters in `scipy.ndimage` but accelerated and parallelized using 
+`ndfilters` is a library of n-dimensional image filters similar to those in
+[`scipy.ndimage`](https://docs.scipy.org/doc/scipy/reference/ndimage.html),
+but accelerated and parallelized using
 [Numba](https://numba.readthedocs.io/en/stable/).
+
+Compared to their `scipy.ndimage` equivalents, the filters in this library
+offer some additional capabilities:
+
+- **Axis selection.** Every filter accepts an `axis` argument, so the kernel
+  can be applied to any subset of the array's axes while the remaining axes
+  act as batch dimensions.
+- **Masking.** A boolean `where` mask excludes selected elements of the input
+  array from the calculation.
+- **Physical units.** Inputs can be either `numpy.ndarray` or
+  `astropy.units.Quantity` instances.
+- **Varying kernels.** The convolution kernel is allowed to change along axes
+  orthogonal to the convolution axes.
+
+The full documentation is hosted on [Read the Docs](https://ndfilters.readthedocs.io/en/latest/).
 
 ## Installation
 
@@ -16,6 +33,19 @@ Similar to the filters in `scipy.ndimage` but accelerated and parallelized using
 
 ```bash
 pip install ndfilters
+```
+
+## Quickstart
+
+Every filter takes an array and the shape of the kernel, and returns the
+filtered array.
+
+```python
+import scipy.datasets
+import ndfilters
+
+img = scipy.datasets.ascent()
+img_filtered = ndfilters.median_filter(img, size=21)
 ```
 
 ## Gallery
@@ -29,10 +59,17 @@ calculates a multidimensional rolling mean for the given kernel shape.
 
 ### Trimmed mean filter
 
-The  [trimmed mean filter](https://ndfilters.readthedocs.io/en/latest/_autosummary/ndfilters.trimmed_mean_filter.html#ndfilters.trimmed_mean_filter)
+The [trimmed mean filter](https://ndfilters.readthedocs.io/en/latest/_autosummary/ndfilters.trimmed_mean_filter.html#ndfilters.trimmed_mean_filter)
 is like the mean filter except it ignores a given portion of the dataset before calculating the mean at each pixel.
 
 ![trimmed mean filter](https://ndfilters.readthedocs.io/en/latest/_images/ndfilters.trimmed_mean_filter_0_0.png)
+
+### Median filter
+
+The [median filter](https://ndfilters.readthedocs.io/en/latest/_autosummary/ndfilters.median_filter.html#ndfilters.median_filter)
+calculates a multidimensional rolling median for the given kernel shape.
+
+![median filter](https://ndfilters.readthedocs.io/en/latest/_images/ndfilters.median_filter_0_0.png)
 
 ### Variance filter
 
@@ -40,3 +77,21 @@ The [variance filter](https://ndfilters.readthedocs.io/en/latest/_autosummary/nd
 calculates the rolling variance for the given kernel shape.
 
 ![variance filter](https://ndfilters.readthedocs.io/en/latest/_images/ndfilters.variance_filter_0_0.png)
+
+### Generic filter
+
+The [generic filter](https://ndfilters.readthedocs.io/en/latest/_autosummary/ndfilters.generic_filter.html#ndfilters.generic_filter)
+applies an arbitrary compiled function to each kernel footprint.
+It is the engine behind the other rolling filters in this library, and it can
+be used directly to build custom filters.
+
+![generic filter](https://ndfilters.readthedocs.io/en/latest/_images/ndfilters.generic_filter_0_0.png)
+
+### Convolution
+
+[`ndfilters.convolve()`](https://ndfilters.readthedocs.io/en/latest/_autosummary/ndfilters.convolve.html#ndfilters.convolve)
+convolves an array with a given kernel.
+Unlike `scipy.ndimage.convolve()` or `astropy.convolution.convolve()`,
+the kernel is allowed to vary along axes orthogonal to the convolution axes.
+
+![convolve](https://ndfilters.readthedocs.io/en/latest/_images/ndfilters.convolve_0_1.png)
