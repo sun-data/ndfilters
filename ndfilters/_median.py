@@ -46,7 +46,10 @@ def median_filter(
     -----
     For a kernel with an even number of elements, this function averages the
     two middle elements of the footprint, like :func:`numpy.median`, while
-    :func:`scipy.ndimage.median_filter` takes the lower of the two.
+    :func:`scipy.ndimage.median_filter` returns the larger of the two.
+    SciPy implements its median filter as a rank filter, selecting the
+    element of rank ``size // 2``, so its result is always a value that
+    occurs in the footprint and can be stored in an integer array.
 
     Examples
     --------
