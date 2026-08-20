@@ -3,6 +3,7 @@ import numpy as np
 import numba
 import astropy.units as u
 from ._indices import (
+    validate_mode,
     rectify_index_lower,
     rectify_index_upper,
 )
@@ -94,11 +95,21 @@ def convolve(
         axs[1].set_title("convolved image");
         axs[1].imshow(img_convolved, cmap="gray");
     """
+    validate_mode(mode)
+
     if isinstance(array, u.Quantity):
         unit = array.unit
         array = array.value
     else:
         unit = None
+
+    # The weighted sum is computed in floating point, so an integer array or
+    # kernel has to be promoted before the result can be stored.
+    array = np.asanyarray(array)
+    kernel = np.asanyarray(kernel)
+    dtype = np.result_type(array.dtype, kernel.dtype, np.float32)
+    array = array.astype(dtype, copy=False)
+    kernel = kernel.astype(dtype, copy=False)
 
     if axis is None:
         axis = tuple(range(array.ndim))

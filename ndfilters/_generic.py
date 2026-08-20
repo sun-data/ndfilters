@@ -3,6 +3,7 @@ import numpy as np
 import numba
 import astropy.units as u
 from ._indices import (
+    validate_mode,
     rectify_index_lower,
     rectify_index_upper,
 )
@@ -85,11 +86,18 @@ def generic_filter(
         axs[1].imshow(img_filtered, cmap="gray");
 
     """
+    validate_mode(mode)
+
     if isinstance(array, u.Quantity):
         unit = array.unit
         array = array.value
     else:
         unit = None
+
+    # `function` returns a float, and an empty kernel footprint returns NaN,
+    # so an integer array has to be promoted before it can hold the result.
+    array = np.asanyarray(array)
+    array = array.astype(np.result_type(array.dtype, np.float32), copy=False)
 
     if axis is None:
         axis = tuple(range(array.ndim))
@@ -102,6 +110,9 @@ def generic_filter(
             raise ValueError(
                 f"{size=} should have the same number of elements as {axis=}."
             )
+
+    if any(s < 1 for s in size):
+        raise ValueError(f"Every element of {size=} should be a positive integer.")
 
     axis_numba = ~np.arange(len(axis))[::-1]
 
