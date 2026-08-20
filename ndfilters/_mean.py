@@ -74,6 +74,6 @@ def mean_filter(
 @numba.njit(cache=True)
 def _mean(
     array: np.ndarray,
-    args: tuple[float],
+    args: tuple,
 ) -> float:
     return float(np.mean(array))

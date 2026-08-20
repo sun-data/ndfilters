@@ -24,7 +24,7 @@ def median_filter(
     array
         The input array to be filtered
     size
-        The shape of the kernel over which the mean will be calculated.
+        The shape of the kernel over which the median will be calculated.
     axis
         The axes over which to apply the kernel.
         Should either be a scalar or have the same number of items as `size`.
@@ -40,7 +40,13 @@ def median_filter(
 
     Returns
     -------
-        A copy of the array with the mean filter applied.
+        A copy of the array with the median filter applied.
+
+    Notes
+    -----
+    For a kernel with an even number of elements, this function averages the
+    two middle elements of the footprint, like :func:`numpy.median`, while
+    :func:`scipy.ndimage.median_filter` takes the lower of the two.
 
     Examples
     --------
@@ -74,6 +80,6 @@ def median_filter(
 @numba.njit(cache=True)
 def _median(
     array: np.ndarray,
-    args: tuple[float],
+    args: tuple,
 ) -> float:
-    return np.median(array)
+    return float(np.median(array))
