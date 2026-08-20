@@ -175,38 +175,43 @@ def _convolve_1d(
     where: np.ndarray,
     mode: str,
 ):
-    result = np.zeros_like(array)
+    result = np.empty_like(array)
 
     array_shape_t, array_shape_x = array.shape
 
     _, kernel_shape_x = kernel.shape
 
-    for it in range(array_shape_t):
+    # Every output element is independent, so the batch axis and the
+    # convolution axes are flattened into a single parallel loop.
+    # Parallelizing over only the convolution axes starves the thread pool
+    # whenever those axes are short.
+    for i in numba.prange(array_shape_t * array_shape_x):
 
-        for ix in numba.prange(array_shape_x):
+        it = i // array_shape_x
+        ix = i % array_shape_x
 
-            r = 0
+        r = 0
 
-            for kx in range(kernel_shape_x):
+        for kx in range(kernel_shape_x):
 
-                px = kx - (kernel_shape_x - 1) // 2
-                jx = ix + px
+            px = kx - (kernel_shape_x - 1) // 2
+            jx = ix + px
 
-                if jx < 0:
-                    if mode == "truncate":
-                        continue
-                    jx = rectify_index_lower(jx, array_shape_x, mode)
-                elif jx >= array_shape_x:
-                    if mode == "truncate":
-                        continue
-                    jx = rectify_index_upper(jx, array_shape_x, mode)
+            if jx < 0:
+                if mode == "truncate":
+                    continue
+                jx = rectify_index_lower(jx, array_shape_x, mode)
+            elif jx >= array_shape_x:
+                if mode == "truncate":
+                    continue
+                jx = rectify_index_upper(jx, array_shape_x, mode)
 
-                if where[it, jx]:
-                    array_tx = array[it, jx]
-                    kernel_tx = kernel[it, ~kx]
-                    r += array_tx * kernel_tx
+            if where[it, jx]:
+                array_tx = array[it, jx]
+                kernel_tx = kernel[it, ~kx]
+                r += array_tx * kernel_tx
 
-            result[it, ix] = r
+        result[it, ix] = r
 
     return result
 
@@ -224,47 +229,48 @@ def _convolve_2d(
 
     _, kernel_shape_x, kernel_shape_y = kernel.shape
 
-    for it in range(array_shape_t):
+    for i in numba.prange(array_shape_t * array_shape_x * array_shape_y):
 
-        for ix in numba.prange(array_shape_x):
-            for iy in numba.prange(array_shape_y):
+        it = i // (array_shape_x * array_shape_y)
+        ix = (i // array_shape_y) % array_shape_x
+        iy = i % array_shape_y
 
-                r = 0
+        r = 0
 
-                for kx in range(kernel_shape_x):
+        for kx in range(kernel_shape_x):
 
-                    px = kx - (kernel_shape_x - 1) // 2
-                    jx = ix + px
+            px = kx - (kernel_shape_x - 1) // 2
+            jx = ix + px
 
-                    if jx < 0:
-                        if mode == "truncate":
-                            continue
-                        jx = rectify_index_lower(jx, array_shape_x, mode)
-                    elif jx >= array_shape_x:
-                        if mode == "truncate":
-                            continue
-                        jx = rectify_index_upper(jx, array_shape_x, mode)
+            if jx < 0:
+                if mode == "truncate":
+                    continue
+                jx = rectify_index_lower(jx, array_shape_x, mode)
+            elif jx >= array_shape_x:
+                if mode == "truncate":
+                    continue
+                jx = rectify_index_upper(jx, array_shape_x, mode)
 
-                    for ky in range(kernel_shape_y):
+            for ky in range(kernel_shape_y):
 
-                        py = ky - (kernel_shape_y - 1) // 2
-                        jy = iy + py
+                py = ky - (kernel_shape_y - 1) // 2
+                jy = iy + py
 
-                        if jy < 0:
-                            if mode == "truncate":
-                                continue
-                            jy = rectify_index_lower(jy, array_shape_y, mode)
-                        elif jy >= array_shape_y:
-                            if mode == "truncate":
-                                continue
-                            jy = rectify_index_upper(jy, array_shape_y, mode)
+                if jy < 0:
+                    if mode == "truncate":
+                        continue
+                    jy = rectify_index_lower(jy, array_shape_y, mode)
+                elif jy >= array_shape_y:
+                    if mode == "truncate":
+                        continue
+                    jy = rectify_index_upper(jy, array_shape_y, mode)
 
-                        if where[it, jx, jy]:
-                            array_txy = array[it, jx, jy]
-                            kernel_txy = kernel[it, ~kx, ~ky]
-                            r += array_txy * kernel_txy
+                if where[it, jx, jy]:
+                    array_txy = array[it, jx, jy]
+                    kernel_txy = kernel[it, ~kx, ~ky]
+                    r += array_txy * kernel_txy
 
-                result[it, ix, iy] = r
+        result[it, ix, iy] = r
 
     return result
 
@@ -282,61 +288,64 @@ def _convolve_3d(
 
     _, kernel_shape_x, kernel_shape_y, kernel_shape_z = kernel.shape
 
-    for it in range(array_shape_t):
+    for i in numba.prange(
+        array_shape_t * array_shape_x * array_shape_y * array_shape_z
+    ):
 
-        for ix in numba.prange(array_shape_x):
-            for iy in numba.prange(array_shape_y):
-                for iz in numba.prange(array_shape_z):
+        it = i // (array_shape_x * array_shape_y * array_shape_z)
+        ix = (i // (array_shape_y * array_shape_z)) % array_shape_x
+        iy = (i // array_shape_z) % array_shape_y
+        iz = i % array_shape_z
 
-                    r = 0
+        r = 0
 
-                    for kx in range(kernel_shape_x):
+        for kx in range(kernel_shape_x):
 
-                        px = kx - (kernel_shape_x - 1) // 2
-                        jx = ix + px
+            px = kx - (kernel_shape_x - 1) // 2
+            jx = ix + px
 
-                        if jx < 0:
-                            if mode == "truncate":
-                                continue
-                            jx = rectify_index_lower(jx, array_shape_x, mode)
-                        elif jx >= array_shape_x:
-                            if mode == "truncate":
-                                continue
-                            jx = rectify_index_upper(jx, array_shape_x, mode)
+            if jx < 0:
+                if mode == "truncate":
+                    continue
+                jx = rectify_index_lower(jx, array_shape_x, mode)
+            elif jx >= array_shape_x:
+                if mode == "truncate":
+                    continue
+                jx = rectify_index_upper(jx, array_shape_x, mode)
 
-                        for ky in range(kernel_shape_y):
+            for ky in range(kernel_shape_y):
 
-                            py = ky - (kernel_shape_y - 1) // 2
-                            jy = iy + py
+                py = ky - (kernel_shape_y - 1) // 2
+                jy = iy + py
 
-                            if jy < 0:
-                                if mode == "truncate":
-                                    continue
-                                jy = rectify_index_lower(jy, array_shape_y, mode)
-                            elif jy >= array_shape_y:
-                                if mode == "truncate":
-                                    continue
-                                jy = rectify_index_upper(jy, array_shape_y, mode)
+                if jy < 0:
+                    if mode == "truncate":
+                        continue
+                    jy = rectify_index_lower(jy, array_shape_y, mode)
+                elif jy >= array_shape_y:
+                    if mode == "truncate":
+                        continue
+                    jy = rectify_index_upper(jy, array_shape_y, mode)
 
-                            for kz in range(kernel_shape_z):
+                for kz in range(kernel_shape_z):
 
-                                pz = kz - (kernel_shape_z - 1) // 2
-                                jz = iz + pz
+                    pz = kz - (kernel_shape_z - 1) // 2
+                    jz = iz + pz
 
-                                if jz < 0:
-                                    if mode == "truncate":
-                                        continue
-                                    jz = rectify_index_lower(jz, array_shape_z, mode)
-                                elif jz >= array_shape_z:
-                                    if mode == "truncate":
-                                        continue
-                                    jz = rectify_index_upper(jz, array_shape_z, mode)
+                    if jz < 0:
+                        if mode == "truncate":
+                            continue
+                        jz = rectify_index_lower(jz, array_shape_z, mode)
+                    elif jz >= array_shape_z:
+                        if mode == "truncate":
+                            continue
+                        jz = rectify_index_upper(jz, array_shape_z, mode)
 
-                                if where[it, jx, jy, jz]:
-                                    array_txyz = array[it, jx, jy, jz]
-                                    kernel_txyz = kernel[it, ~kx, ~ky, ~kz]
-                                    r += array_txyz * kernel_txyz
+                    if where[it, jx, jy, jz]:
+                        array_txyz = array[it, jx, jy, jz]
+                        kernel_txyz = kernel[it, ~kx, ~ky, ~kz]
+                        r += array_txyz * kernel_txyz
 
-                    result[it, ix, iy, iz] = r
+        result[it, ix, iy, iz] = r
 
     return result

@@ -166,34 +166,38 @@ def _generic_filter_1d(
 
     (kernel_shape_x,) = size
 
-    for it in range(array_shape_t):
+    # Every output element is independent, so the batch axis and the kernel
+    # axes are flattened into a single parallel loop. Parallelizing over only
+    # the kernel axes starves the thread pool whenever those axes are short.
+    for i in numba.prange(array_shape_t * array_shape_x):
 
-        for ix in numba.prange(array_shape_x):
+        it = i // array_shape_x
+        ix = i % array_shape_x
 
-            values = np.zeros(shape=size)
-            mask = np.zeros(shape=size, dtype=np.bool_)
+        values = np.zeros(shape=size)
+        mask = np.zeros(shape=size, dtype=np.bool_)
 
-            for kx in range(kernel_shape_x):
+        for kx in range(kernel_shape_x):
 
-                px = kx - kernel_shape_x // 2
-                jx = ix + px
+            px = kx - kernel_shape_x // 2
+            jx = ix + px
 
-                if jx < 0:
-                    if mode == "truncate":
-                        continue
-                    jx = rectify_index_lower(jx, array_shape_x, mode)
-                elif jx >= array_shape_x:
-                    if mode == "truncate":
-                        continue
-                    jx = rectify_index_upper(jx, array_shape_x, mode)
+            if jx < 0:
+                if mode == "truncate":
+                    continue
+                jx = rectify_index_lower(jx, array_shape_x, mode)
+            elif jx >= array_shape_x:
+                if mode == "truncate":
+                    continue
+                jx = rectify_index_upper(jx, array_shape_x, mode)
 
-                values[kx] = array[it, jx]
-                mask[kx] = where[it, jx]
+            values[kx] = array[it, jx]
+            mask[kx] = where[it, jx]
 
-            if np.any(mask):
-                result[it, ix] = function(values[mask], args)
-            else:
-                result[it, ix] = np.nan
+        if np.any(mask):
+            result[it, ix] = function(values[mask], args)
+        else:
+            result[it, ix] = np.nan
 
     return result
 
@@ -213,52 +217,53 @@ def _generic_filter_2d(
 
     kernel_shape_x, kernel_shape_y = size
 
-    for it in range(array_shape_t):
+    for i in numba.prange(array_shape_t * array_shape_x * array_shape_y):
 
-        for ix in numba.prange(array_shape_x):
-            for iy in numba.prange(array_shape_y):
+        it = i // (array_shape_x * array_shape_y)
+        ix = (i // array_shape_y) % array_shape_x
+        iy = i % array_shape_y
 
-                values = np.zeros(shape=size)
-                mask = np.zeros(shape=size, dtype=np.bool_)
+        values = np.zeros(shape=size)
+        mask = np.zeros(shape=size, dtype=np.bool_)
 
-                for kx in range(kernel_shape_x):
+        for kx in range(kernel_shape_x):
 
-                    px = kx - kernel_shape_x // 2
-                    jx = ix + px
+            px = kx - kernel_shape_x // 2
+            jx = ix + px
 
-                    if jx < 0:
-                        if mode == "truncate":
-                            continue
-                        jx = rectify_index_lower(jx, array_shape_x, mode)
-                    elif jx >= array_shape_x:
-                        if mode == "truncate":
-                            continue
-                        jx = rectify_index_upper(jx, array_shape_x, mode)
+            if jx < 0:
+                if mode == "truncate":
+                    continue
+                jx = rectify_index_lower(jx, array_shape_x, mode)
+            elif jx >= array_shape_x:
+                if mode == "truncate":
+                    continue
+                jx = rectify_index_upper(jx, array_shape_x, mode)
 
-                    for ky in range(kernel_shape_y):
+            for ky in range(kernel_shape_y):
 
-                        py = ky - kernel_shape_y // 2
-                        jy = iy + py
+                py = ky - kernel_shape_y // 2
+                jy = iy + py
 
-                        if jy < 0:
-                            if mode == "truncate":
-                                continue
-                            jy = rectify_index_lower(jy, array_shape_y, mode)
-                        elif jy >= array_shape_y:
-                            if mode == "truncate":
-                                continue
-                            jy = rectify_index_upper(jy, array_shape_y, mode)
+                if jy < 0:
+                    if mode == "truncate":
+                        continue
+                    jy = rectify_index_lower(jy, array_shape_y, mode)
+                elif jy >= array_shape_y:
+                    if mode == "truncate":
+                        continue
+                    jy = rectify_index_upper(jy, array_shape_y, mode)
 
-                        values[kx, ky] = array[it, jx, jy]
-                        mask[kx, ky] = where[it, jx, jy]
+                values[kx, ky] = array[it, jx, jy]
+                mask[kx, ky] = where[it, jx, jy]
 
-                values = values.reshape(-1)
-                mask = mask.reshape(-1)
+        values = values.reshape(-1)
+        mask = mask.reshape(-1)
 
-                if np.any(mask):
-                    result[it, ix, iy] = function(values[mask], args)
-                else:
-                    result[it, ix, iy] = np.nan
+        if np.any(mask):
+            result[it, ix, iy] = function(values[mask], args)
+        else:
+            result[it, ix, iy] = np.nan
 
     return result
 
@@ -278,66 +283,69 @@ def _generic_filter_3d(
 
     kernel_shape_x, kernel_shape_y, kernel_shape_z = size
 
-    for it in range(array_shape_t):
+    for i in numba.prange(
+        array_shape_t * array_shape_x * array_shape_y * array_shape_z
+    ):
 
-        for ix in numba.prange(array_shape_x):
-            for iy in numba.prange(array_shape_y):
-                for iz in numba.prange(array_shape_z):
+        it = i // (array_shape_x * array_shape_y * array_shape_z)
+        ix = (i // (array_shape_y * array_shape_z)) % array_shape_x
+        iy = (i // array_shape_z) % array_shape_y
+        iz = i % array_shape_z
 
-                    values = np.zeros(shape=size)
-                    mask = np.zeros(shape=size, dtype=np.bool_)
+        values = np.zeros(shape=size)
+        mask = np.zeros(shape=size, dtype=np.bool_)
 
-                    for kx in range(kernel_shape_x):
+        for kx in range(kernel_shape_x):
 
-                        px = kx - kernel_shape_x // 2
-                        jx = ix + px
+            px = kx - kernel_shape_x // 2
+            jx = ix + px
 
-                        if jx < 0:
-                            if mode == "truncate":
-                                continue
-                            jx = rectify_index_lower(jx, array_shape_x, mode)
-                        elif jx >= array_shape_x:
-                            if mode == "truncate":
-                                continue
-                            jx = rectify_index_upper(jx, array_shape_x, mode)
+            if jx < 0:
+                if mode == "truncate":
+                    continue
+                jx = rectify_index_lower(jx, array_shape_x, mode)
+            elif jx >= array_shape_x:
+                if mode == "truncate":
+                    continue
+                jx = rectify_index_upper(jx, array_shape_x, mode)
 
-                        for ky in range(kernel_shape_y):
+            for ky in range(kernel_shape_y):
 
-                            py = ky - kernel_shape_y // 2
-                            jy = iy + py
+                py = ky - kernel_shape_y // 2
+                jy = iy + py
 
-                            if jy < 0:
-                                if mode == "truncate":
-                                    continue
-                                jy = rectify_index_lower(jy, array_shape_y, mode)
-                            elif jy >= array_shape_y:
-                                if mode == "truncate":
-                                    continue
-                                jy = rectify_index_upper(jy, array_shape_y, mode)
+                if jy < 0:
+                    if mode == "truncate":
+                        continue
+                    jy = rectify_index_lower(jy, array_shape_y, mode)
+                elif jy >= array_shape_y:
+                    if mode == "truncate":
+                        continue
+                    jy = rectify_index_upper(jy, array_shape_y, mode)
 
-                            for kz in range(kernel_shape_z):
+                for kz in range(kernel_shape_z):
 
-                                pz = kz - kernel_shape_z // 2
-                                jz = iz + pz
+                    pz = kz - kernel_shape_z // 2
+                    jz = iz + pz
 
-                                if jz < 0:
-                                    if mode == "truncate":
-                                        continue
-                                    jz = rectify_index_lower(jz, array_shape_z, mode)
-                                elif jz >= array_shape_z:
-                                    if mode == "truncate":
-                                        continue
-                                    jz = rectify_index_upper(jz, array_shape_z, mode)
+                    if jz < 0:
+                        if mode == "truncate":
+                            continue
+                        jz = rectify_index_lower(jz, array_shape_z, mode)
+                    elif jz >= array_shape_z:
+                        if mode == "truncate":
+                            continue
+                        jz = rectify_index_upper(jz, array_shape_z, mode)
 
-                                values[kx, ky, kz] = array[it, jx, jy, jz]
-                                mask[kx, ky, kz] = where[it, jx, jy, jz]
+                    values[kx, ky, kz] = array[it, jx, jy, jz]
+                    mask[kx, ky, kz] = where[it, jx, jy, jz]
 
-                    values = values.reshape(-1)
-                    mask = mask.reshape(-1)
+        values = values.reshape(-1)
+        mask = mask.reshape(-1)
 
-                    if np.any(mask):
-                        result[it, ix, iy, iz] = function(values[mask], args)
-                    else:
-                        result[it, ix, iy, iz] = np.nan
+        if np.any(mask):
+            result[it, ix, iy, iz] = function(values[mask], args)
+        else:
+            result[it, ix, iy, iz] = np.nan
 
     return result
