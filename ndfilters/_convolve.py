@@ -35,6 +35,8 @@ def convolve(
     kernel
         The convolution kernel.
         Any non-convolution axes must be broadcastable with `array`.
+        If `array` and `kernel` both have units, the units of the result are
+        the product of the two, since the convolution is a sum of products.
     axis
         The axes of `array` over which to apply the kernel.
         If :obj:`None`, it is assumed that the convolution is applied to all
@@ -47,7 +49,8 @@ def convolve(
 
     Returns
     -------
-        A copy of the array convolved with the given kernel.
+        A copy of the array convolved with the given kernel, in the product of
+        the units of `array` and `kernel`.
 
     Examples
     --------
@@ -101,11 +104,15 @@ def convolve(
     """
     validate_mode(mode)
 
+    # The convolution is a sum of products, so the units of the result are
+    # the product of the units of the operands.
+    unit = None
     if isinstance(array, u.Quantity):
         unit = array.unit
         array = array.value
-    else:
-        unit = None
+    if isinstance(kernel, u.Quantity):
+        unit = kernel.unit if unit is None else unit * kernel.unit
+        kernel = kernel.value
 
     # The weighted sum is computed in floating point, so an integer array or
     # kernel has to be promoted before the result can be stored.

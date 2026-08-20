@@ -113,3 +113,47 @@ def test_convolve_kernel_wider_than_array(
     expected = scipy.ndimage.convolve(array, kernel, mode=mode)
 
     assert np.allclose(result, expected)
+
+
+@pytest.mark.parametrize(
+    argnames="unit_array",
+    argvalues=[None, u.mm],
+)
+@pytest.mark.parametrize(
+    argnames="unit_kernel",
+    argvalues=[None, u.dimensionless_unscaled, u.s, 1 / u.s],
+)
+def test_convolve_unit(
+    unit_array: None | u.UnitBase,
+    unit_kernel: None | u.UnitBase,
+):
+    """
+    The convolution is a sum of products, so the units of the result should be
+    the product of the units of the array and the kernel.
+    """
+    array = np.random.uniform(size=11)
+    kernel = np.random.uniform(size=3)
+
+    expected = ndfilters.convolve(array, kernel)
+
+    if unit_array is not None:
+        array = array * unit_array
+    if unit_kernel is not None:
+        kernel = kernel * unit_kernel
+
+    result = ndfilters.convolve(array, kernel)
+
+    if unit_array is None and unit_kernel is None:
+        assert not isinstance(result, u.Quantity)
+        assert np.allclose(result, expected)
+        return
+
+    unit_expected = u.dimensionless_unscaled
+    if unit_array is not None:
+        unit_expected = unit_expected * unit_array
+    if unit_kernel is not None:
+        unit_expected = unit_expected * unit_kernel
+
+    assert isinstance(result, u.Quantity)
+    assert result.unit == unit_expected
+    assert np.allclose(result.value, expected)
