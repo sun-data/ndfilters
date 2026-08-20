@@ -25,6 +25,29 @@ offer some additional capabilities:
 - **Varying kernels.** The convolution kernel is allowed to change along axes
   orthogonal to the convolution axes.
 
+## Differences from `scipy.ndimage`
+
+Where a filter in this library has a `scipy.ndimage` counterpart, the two
+agree except in the following cases.
+
+- **Boundary modes.** Only `"mirror"`, `"nearest"`, and `"wrap"` are
+  supported, plus `"truncate"`, which has no `scipy.ndimage` equivalent and
+  simply drops the parts of the kernel that fall outside the array. SciPy's
+  `"reflect"`, `"constant"`, and `"grid-*"` modes raise a `ValueError` here.
+- **Integer input.** Integer arrays are promoted to floating point, so the
+  result is a float and is not truncated. `scipy.ndimage` returns the dtype
+  of the input, and for the separable filters it truncates its intermediates
+  as well. The promotion is what lets a `where` mask that excludes an entire
+  kernel footprint return `NaN`.
+- **Even-sized median footprints.** `ndfilters.median_filter` averages the
+  two middle elements, like `numpy.median`, while
+  `scipy.ndimage.median_filter` selects the element of rank `size // 2`, the
+  larger of the two. SciPy's convention keeps the result in the dtype of the
+  input and never introduces a value that was not already in the footprint,
+  but it is a biased estimator: on unit-variance noise a `size=2` filter
+  shifts the signal by roughly `0.57`. The two conventions agree exactly for
+  odd-sized footprints.
+
 The full documentation is hosted on [Read the Docs](https://ndfilters.readthedocs.io/en/latest/).
 
 ## Installation
