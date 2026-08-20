@@ -102,37 +102,41 @@ def convolve(
 
     if axis is None:
         axis = tuple(range(array.ndim))
-    axis = np.array(axis)
-    axis = np.lib.array_utils.normalize_axis_tuple(~axis, ndim=array.ndim)
-    axis = ~np.array(axis)
+
+    # Express the convolution axes as negative indices so that they select the
+    # same axes of `array` and of the broadcasted kernel shapes below.
+    ndim = array.ndim
+    axis_ = tuple(
+        a - ndim for a in np.lib.array_utils.normalize_axis_tuple(axis, ndim=ndim)
+    )
 
     shape_kernel = list(kernel.shape)
-    for ax in axis:
+    for ax in axis_:
         shape_kernel[ax] = 1
 
     shape = np.broadcast_shapes(array.shape, shape_kernel, np.shape(where))
 
     shape_kernel = list(shape)
-    for ax in axis:
+    for ax in axis_:
         shape_kernel[ax] = kernel.shape[ax]
 
     array = np.broadcast_to(array, shape)
     kernel = np.broadcast_to(kernel, shape_kernel)
     where = np.broadcast_to(where, shape)
 
-    axis_numba = ~np.arange(len(axis))[::-1]
-    shape_numba = tuple(shape[ax] for ax in axis)
-    shape_kernel_numba = tuple(shape_kernel[ax] for ax in axis)
+    axis_numba = ~np.arange(len(axis_))[::-1]
+    shape_numba = tuple(shape[ax] for ax in axis_)
+    shape_kernel_numba = tuple(shape_kernel[ax] for ax in axis_)
 
-    array_ = np.moveaxis(array, axis, axis_numba)
-    kernel_ = np.moveaxis(kernel, axis, axis_numba)
-    where_ = np.moveaxis(where, axis, axis_numba)
+    array_ = np.moveaxis(array, axis_, axis_numba)
+    kernel_ = np.moveaxis(kernel, axis_, axis_numba)
+    where_ = np.moveaxis(where, axis_, axis_numba)
 
-    if len(axis) == 1:
+    if len(axis_) == 1:
         _convolve_nd = _convolve_1d
-    elif len(axis) == 2:
+    elif len(axis_) == 2:
         _convolve_nd = _convolve_2d
-    elif len(axis) == 3:
+    elif len(axis_) == 3:
         _convolve_nd = _convolve_3d
     else:  # pragma: nocover
         raise ValueError(f"Only 1-3 axes supported, got {axis=}.")
@@ -145,7 +149,7 @@ def convolve(
     )
 
     result = result.reshape(array_.shape)
-    result = np.moveaxis(result, axis_numba, axis)
+    result = np.moveaxis(result, axis_numba, axis_)
 
     if unit is not None:
         result = result << unit

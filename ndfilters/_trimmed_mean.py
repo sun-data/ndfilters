@@ -91,4 +91,4 @@ def _trimmed_mean(
 
     array = np.partition(array, (lowercut, uppercut - 1))
 
-    return np.mean(array[lowercut:uppercut])
+    return float(np.mean(array[lowercut:uppercut]))

@@ -45,8 +45,20 @@ doc = [
 Homepage = "https://github.com/sun-data/ndfilters"
 Documentation = "https://ndfilters.readthedocs.io/en/latest"
 
+[tool.pyright]
+include = ["ndfilters"]
+# The tests are excluded because `astropy` does not ship a `py.typed` marker.
+# Expressions such as `numpy.linspace(...) * astropy.units.mm`, which the tests
+# use heavily, are therefore inferred as a union of unit types rather than as a
+# `Quantity`, and silencing that requires more noise than the tests are worth.
+exclude = ["**/_tests"]
+typeCheckingMode = "standard"
+
 [tool.setuptools]
 packages = ["ndfilters"]
+
+[tool.setuptools.package-data]
+ndfilters = ["py.typed"]
 
 [tool.setuptools_scm]
 

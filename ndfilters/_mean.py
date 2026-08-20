@@ -76,4 +76,4 @@ def _mean(
     array: np.ndarray,
     args: tuple[float],
 ) -> float:
-    return np.mean(array)
+    return float(np.mean(array))
