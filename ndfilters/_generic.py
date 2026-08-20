@@ -144,7 +144,7 @@ def generic_filter(
 def _generic_filter_1d(
     array: np.ndarray,
     function: Callable[[np.ndarray, tuple], float],
-    size: tuple[int],
+    size: tuple[int, ...],
     where: np.ndarray,
     mode: str,
     args: tuple,
@@ -191,7 +191,7 @@ def _generic_filter_1d(
 def _generic_filter_2d(
     array: np.ndarray,
     function: Callable[[np.ndarray, tuple], float],
-    size: tuple[int, int],
+    size: tuple[int, ...],
     where: np.ndarray,
     mode: str,
     args: tuple,
@@ -256,7 +256,7 @@ def _generic_filter_2d(
 def _generic_filter_3d(
     array: np.ndarray,
     function: Callable[[np.ndarray, tuple], float],
-    size: tuple[int, int, int],
+    size: tuple[int, ...],
     where: np.ndarray,
     mode: str,
     args: tuple,

@@ -76,4 +76,4 @@ def _variance(
     array: np.ndarray,
     args: tuple[float],
 ) -> float:
-    return np.var(array)
+    return float(np.var(array))
