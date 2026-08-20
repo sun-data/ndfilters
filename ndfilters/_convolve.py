@@ -45,6 +45,10 @@ def convolve(
     mode
         The method used to extend `array` beyond its boundaries.
 
+    Returns
+    -------
+        A copy of the array convolved with the given kernel.
+
     Examples
     --------
 

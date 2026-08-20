@@ -36,7 +36,7 @@ def generic_filter(
         This function must accept a 1D array and a tuple of extra arguments as
         input and return a scalar.
     size
-        The shape of the kernel over which the trimmed mean will be calculated.
+        The shape of the kernel over which `function` will be evaluated.
     axis
         The axes over which to apply the kernel.
         Should either be a scalar or have the same number of items as `size`.
@@ -51,6 +51,10 @@ def generic_filter(
         supported.
     args
         Extra arguments to pass to function.
+
+    Returns
+    -------
+        A copy of the array with `function` applied to each kernel footprint.
 
     Examples
     --------
