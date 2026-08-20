@@ -76,3 +76,40 @@ def test_convolve(
     )
 
     assert np.allclose(u.Quantity(result).value, result_expected)
+
+
+def test_convolve_mode_invalid():
+    with pytest.raises(ValueError, match="Unrecognized mode="):
+        ndfilters.convolve(np.random.uniform(size=11), np.ones(3) / 3, mode="foo")
+
+
+@pytest.mark.parametrize(
+    argnames="size_array",
+    argvalues=[1, 2, 5],
+)
+@pytest.mark.parametrize(
+    argnames="size_kernel",
+    argvalues=[3, 5, 9, 11, 13, 21],
+)
+@pytest.mark.parametrize(
+    argnames="mode",
+    argvalues=["mirror", "nearest", "wrap"],
+)
+def test_convolve_kernel_wider_than_array(
+    size_array: int,
+    size_kernel: int,
+    mode: str,
+):
+    """
+    A kernel wider than ``2 * size_array - 1`` places an index more than one
+    array width outside the boundary, which used to be rectified to an
+    out-of-bounds index in "mirror" mode.
+    """
+    array = np.random.uniform(size=size_array)
+    kernel = np.random.uniform(size=size_kernel)
+
+    result = ndfilters.convolve(array, kernel, mode=mode)
+
+    expected = scipy.ndimage.convolve(array, kernel, mode=mode)
+
+    assert np.allclose(result, expected)
