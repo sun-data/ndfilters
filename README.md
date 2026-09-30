@@ -118,3 +118,20 @@ Unlike `scipy.ndimage.convolve()` or `astropy.convolution.convolve()`,
 the kernel is allowed to vary along axes orthogonal to the convolution axes.
 
 ![convolve](https://ndfilters.readthedocs.io/en/latest/_images/ndfilters.convolve_0_2.png)
+
+## Citation
+
+If you use ndfilters in your research, please cite it.
+The citation metadata is kept in [`CITATION.cff`](https://github.com/sun-data/ndfilters/blob/main/CITATION.cff),
+which the "Cite this repository" button on GitHub can export as BibTeX or APA.
+Please include the version of ndfilters that you used,
+which is given by `importlib.metadata.version("ndfilters")`.
+
+```bibtex
+@software{ndfilters,
+  author = {Smart, Roy T.},
+  title = {ndfilters},
+  version = {X.Y.Z},
+  url = {https://github.com/sun-data/ndfilters},
+}
+```
