@@ -117,4 +117,4 @@ convolves an array with a given kernel.
 Unlike `scipy.ndimage.convolve()` or `astropy.convolution.convolve()`,
 the kernel is allowed to vary along axes orthogonal to the convolution axes.
 
-![convolve](https://ndfilters.readthedocs.io/en/latest/_images/ndfilters.convolve_0_1.png)
+![convolve](https://ndfilters.readthedocs.io/en/latest/_images/ndfilters.convolve_0_2.png)
