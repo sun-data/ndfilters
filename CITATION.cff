@@ -12,6 +12,10 @@ authors:
 repository-code: "https://github.com/sun-data/ndfilters"
 url: "https://ndfilters.readthedocs.io"
 license: BSD-3-Clause
+identifiers:
+  - type: doi
+    description: Concept DOI, which always resolves to the latest version
+    value: "10.5281/zenodo.23070078"
 keywords:
   - image filters
   - n-dimensional

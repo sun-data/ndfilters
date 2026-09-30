@@ -99,8 +99,17 @@ The citation metadata is kept in
 which the "Cite this repository" button on the
 `GitHub page <https://github.com/sun-data/ndfilters>`_
 can export as BibTeX or APA.
+
+Every release of :mod:`ndfilters` is archived on Zenodo with its own DOI.
+The concept DOI,
+`10.5281/zenodo.23070078 <https://doi.org/10.5281/zenodo.23070078>`_,
+always resolves to the latest version,
+and the Zenodo page lists the DOI of every version.
 Please include the version of :mod:`ndfilters` that you used,
 which is given by ``importlib.metadata.version("ndfilters")``.
+The BibTeX entry below uses the concept DOI.
+To cite a specific version instead,
+replace ``doi`` with the DOI of that version.
 
 .. code-block:: bibtex
 
@@ -108,6 +117,7 @@ which is given by ``importlib.metadata.version("ndfilters")``.
       author = {Smart, Roy T.},
       title = {ndfilters},
       version = {X.Y.Z},
+      doi = {10.5281/zenodo.23070078},
       url = {https://github.com/sun-data/ndfilters},
     }
 

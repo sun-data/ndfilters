@@ -6,6 +6,7 @@
 [![Ruff](https://github.com/sun-data/ndfilters/actions/workflows/ruff.yml/badge.svg)](https://github.com/sun-data/ndfilters/actions/workflows/ruff.yml)
 [![Documentation Status](https://readthedocs.org/projects/ndfilters/badge/?version=latest)](https://ndfilters.readthedocs.io/en/latest/?badge=latest)
 [![PyPI version](https://badge.fury.io/py/ndfilters.svg)](https://badge.fury.io/py/ndfilters)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23070078.svg)](https://doi.org/10.5281/zenodo.23070078)
 
 `ndfilters` is a library of n-dimensional image filters similar to those in
 [`scipy.ndimage`](https://docs.scipy.org/doc/scipy/reference/ndimage.html),
@@ -124,14 +125,23 @@ the kernel is allowed to vary along axes orthogonal to the convolution axes.
 If you use ndfilters in your research, please cite it.
 The citation metadata is kept in [`CITATION.cff`](https://github.com/sun-data/ndfilters/blob/main/CITATION.cff),
 which the "Cite this repository" button on GitHub can export as BibTeX or APA.
+
+Every release of ndfilters is archived on Zenodo with its own DOI.
+The concept DOI, [10.5281/zenodo.23070078](https://doi.org/10.5281/zenodo.23070078),
+always resolves to the latest version,
+and the Zenodo page lists the DOI of every version.
 Please include the version of ndfilters that you used,
 which is given by `importlib.metadata.version("ndfilters")`.
+The BibTeX entry below uses the concept DOI.
+To cite a specific version instead,
+replace `doi` with the DOI of that version.
 
 ```bibtex
 @software{ndfilters,
   author = {Smart, Roy T.},
   title = {ndfilters},
   version = {X.Y.Z},
+  doi = {10.5281/zenodo.23070078},
   url = {https://github.com/sun-data/ndfilters},
 }
 ```
