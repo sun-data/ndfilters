@@ -128,7 +128,8 @@ def test_mean_filter_kernel_wider_than_array(
 
 def _mean_masked(
     array: np.ndarray,
-    size: int,
+    size: int | tuple[int, ...],
+    axis: None | int | tuple[int, ...],
     where: np.ndarray,
     mode: Literal["mirror", "nearest", "wrap", "truncate"],
 ) -> np.ndarray:
@@ -139,32 +140,48 @@ def _mean_masked(
     Its ``"constant"`` mode puts zeros outside the array, which leaves out the
     parts of the kernel outside the array from both, as ``"truncate"`` does.
     """
+    if axis is None:
+        axis = tuple(range(array.ndim))
+    axis = np.lib.array_utils.normalize_axis_tuple(axis, ndim=array.ndim)
+
+    if isinstance(size, int):
+        size = (size,) * len(axis)
+
+    size_scipy = [1] * array.ndim
+    for i, ax in enumerate(axis):
+        size_scipy[ax] = size[i]
+
     mode_scipy = "constant" if mode == "truncate" else mode
     total = scipy.ndimage.uniform_filter(
         np.where(where, array, 0),
-        size=size,
+        size=size_scipy,
         mode=mode_scipy,
     )
     num = scipy.ndimage.uniform_filter(
         where.astype(float),
-        size=size,
+        size=size_scipy,
         mode=mode_scipy,
     )
     return np.divide(
         total,
         num,
         out=np.full(array.shape, np.nan),
-        where=num > 0.5 / size**array.ndim,
+        where=num > 0.5 / np.prod(size_scipy),
     )
 
 
 @pytest.mark.parametrize(
-    argnames="shape",
-    argvalues=[(11,), (11, 12), (7, 8, 9)],
-)
-@pytest.mark.parametrize(
-    argnames="size",
-    argvalues=[3, 4],
+    argnames="shape,axis,size",
+    argvalues=[
+        ((11,), None, 3),
+        ((11,), None, 4),
+        ((11, 12), None, (3, 4)),
+        ((7, 8, 9), None, 3),
+        ((7, 8, 9), None, (4, 3, 4)),
+        ((3, 11, 12), (1, 2), (3, 4)),
+        ((7, 8, 9), (0, 2), (4, 3)),
+        ((7, 8, 9), -1, 4),
+    ],
 )
 @pytest.mark.parametrize(
     argnames="mode",
@@ -176,23 +193,31 @@ def _mean_masked(
 )
 def test_mean_filter_where(
     shape: tuple[int, ...],
-    size: int,
+    axis: None | int | tuple[int, ...],
+    size: int | tuple[int, ...],
     mode: Literal["mirror", "nearest", "wrap", "truncate"],
     dtype: type[np.floating],
 ) -> None:
     """
     The mean of each kernel footprint leaves out the elements excluded by
     `where`, and the mean of a footprint whose elements are all excluded is
-    NaN.
+    NaN, including along a subset of the axes and with a different size along
+    each.
     """
     rng = np.random.default_rng(0)
     array = rng.uniform(size=shape).astype(dtype)
     where = rng.uniform(size=shape) > 0.3
     where[(slice(0, 5),) * len(shape)] = False
 
-    result = ndfilters.mean_filter(array, size=size, where=where, mode=mode)
+    result = ndfilters.mean_filter(
+        array,
+        size=size,
+        axis=axis,
+        where=where,
+        mode=mode,
+    )
 
     assert result.dtype == dtype
     assert np.isnan(result[(2,) * len(shape)])
-    expected = _mean_masked(array, size=size, where=where, mode=mode)
+    expected = _mean_masked(array, size=size, axis=axis, where=where, mode=mode)
     assert np.allclose(result, expected, equal_nan=True)

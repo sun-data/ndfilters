@@ -120,12 +120,17 @@ def test_generic_filter_dtype(dtype: np.dtype):
 
 
 @pytest.mark.parametrize(
-    argnames="shape",
-    argvalues=[(11,), (11, 12), (7, 8, 9)],
-)
-@pytest.mark.parametrize(
-    argnames="size",
-    argvalues=[3, 4],
+    argnames="shape,axis,size",
+    argvalues=[
+        ((11,), None, 3),
+        ((11,), None, 4),
+        ((11, 12), None, (3, 4)),
+        ((7, 8, 9), None, 3),
+        ((7, 8, 9), None, (4, 3, 4)),
+        ((3, 11, 12), (1, 2), (3, 4)),
+        ((7, 8, 9), (0, 2), (4, 3)),
+        ((7, 8, 9), -1, 4),
+    ],
 )
 @pytest.mark.parametrize(
     argnames="mode",
@@ -133,13 +138,15 @@ def test_generic_filter_dtype(dtype: np.dtype):
 )
 def test_generic_filter_where(
     shape: tuple[int, ...],
-    size: int,
+    axis: None | int | tuple[int, ...],
+    size: int | tuple[int, ...],
     mode: Literal["mirror", "nearest", "wrap", "truncate"],
 ) -> None:
     """
     The function is given the elements of each kernel footprint which are not
     excluded by `where`, and not called for a footprint whose elements are all
-    excluded, which is NaN.
+    excluded, which is NaN, including along a subset of the axes and with a
+    different size along each.
     """
     rng = np.random.default_rng(0)
     array = rng.uniform(size=shape)
@@ -150,10 +157,11 @@ def test_generic_filter_where(
         array=array,
         function=_mean,
         size=size,
+        axis=axis,
         where=where,
         mode=mode,
     )
 
     assert np.isnan(result[(2,) * len(shape)])
-    expected = _mean_masked(array, size=size, where=where, mode=mode)
+    expected = _mean_masked(array, size=size, axis=axis, where=where, mode=mode)
     assert np.allclose(result, expected, equal_nan=True)

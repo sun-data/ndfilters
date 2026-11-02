@@ -100,7 +100,9 @@ def _mean_filter_1d(
 
         for kx in range(kernel_shape_x):
 
-            jx = index_x[ix, kx]
+            # As in `generic_filter`, the table of indices is read at an
+            # unsigned index, which numba does not check for a negative value.
+            jx = index_x[np.uint64(ix + kx)]
             if jx < 0:
                 continue
 
@@ -143,13 +145,13 @@ def _mean_filter_2d(
 
         for kx in range(kernel_shape_x):
 
-            jx = index_x[ix, kx]
+            jx = index_x[np.uint64(ix + kx)]
             if jx < 0:
                 continue
 
             for ky in range(kernel_shape_y):
 
-                jy = index_y[iy, ky]
+                jy = index_y[np.uint64(iy + ky)]
                 if jy < 0:
                     continue
 
@@ -196,19 +198,19 @@ def _mean_filter_3d(
 
         for kx in range(kernel_shape_x):
 
-            jx = index_x[ix, kx]
+            jx = index_x[np.uint64(ix + kx)]
             if jx < 0:
                 continue
 
             for ky in range(kernel_shape_y):
 
-                jy = index_y[iy, ky]
+                jy = index_y[np.uint64(iy + ky)]
                 if jy < 0:
                     continue
 
                 for kz in range(kernel_shape_z):
 
-                    jz = index_z[iz, kz]
+                    jz = index_z[np.uint64(iz + kz)]
                     if jz < 0:
                         continue
 

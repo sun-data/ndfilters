@@ -89,8 +89,10 @@ def footprint_indices(
 ) -> np.ndarray:
     """
     The index of the element of an axis under each element of the kernel,
-    with the kernel centered on each element of the axis in turn.
+    wherever the kernel is centered along the axis.
 
+    The index under element ``k`` of the kernel, centered on element ``i`` of
+    the axis, is ``result[i + k]``, since it depends only on their sum.
     The element ``size_kernel // 2`` of the kernel is its center, as in
     :mod:`scipy.ndimage`.
     The indices outside the axis are rectified according to `mode`, or are
@@ -98,6 +100,9 @@ def footprint_indices(
     The filters look the indices up in this table, made before their loops,
     since rectifying them inside the loops, with calls and branches on
     `mode`, made the loops about twice as slow.
+    A table with a row for each element of the axis would hold
+    ``size_array * size_kernel`` indices, which for a long axis and a wide
+    kernel take longer to make than the filter itself.
 
     Parameters
     ----------
@@ -111,21 +116,20 @@ def footprint_indices(
     Returns
     -------
     :
-        The indices, an array of shape ``(size_array, size_kernel)``.
+        The indices, an array of ``size_array + size_kernel - 1`` elements.
     """
-    result = np.empty((size_array, size_kernel), dtype=np.int64)
-    for i in range(size_array):
-        for k in range(size_kernel):
-            j = i + k - size_kernel // 2
-            if j < 0:
-                if mode == "truncate":
-                    j = -1
-                else:
-                    j = rectify_index_lower(j, size_array, mode)
-            elif j >= size_array:
-                if mode == "truncate":
-                    j = -1
-                else:
-                    j = rectify_index_upper(j, size_array, mode)
-            result[i, k] = j
+    result = np.empty(size_array + size_kernel - 1, dtype=np.int64)
+    for i_plus_k in range(result.size):
+        j = i_plus_k - size_kernel // 2
+        if j < 0:
+            if mode == "truncate":
+                j = -1
+            else:
+                j = rectify_index_lower(j, size_array, mode)
+        elif j >= size_array:
+            if mode == "truncate":
+                j = -1
+            else:
+                j = rectify_index_upper(j, size_array, mode)
+        result[i_plus_k] = j
     return result
