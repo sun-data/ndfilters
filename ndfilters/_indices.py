@@ -1,3 +1,4 @@
+import numpy as np
 import numba
 
 __all__ = [
@@ -5,6 +6,7 @@ __all__ = [
     "validate_mode",
     "rectify_index_lower",
     "rectify_index_upper",
+    "footprint_indices",
 ]
 
 modes = ("mirror", "nearest", "wrap", "truncate")
@@ -77,3 +79,53 @@ def rectify_index_upper(index: int, size: int, mode: str) -> int:
         return index % size
     else:  # pragma: nocover
         raise ValueError
+
+
+@numba.njit(cache=True)
+def footprint_indices(
+    size_array: int,
+    size_kernel: int,
+    mode: str,
+) -> np.ndarray:
+    """
+    The index of the element of an axis under each element of the kernel,
+    with the kernel centered on each element of the axis in turn.
+
+    The element ``size_kernel // 2`` of the kernel is its center, as in
+    :mod:`scipy.ndimage`.
+    The indices outside the axis are rectified according to `mode`, or are
+    -1 if `mode` is ``"truncate"``, which drops them.
+    The filters look the indices up in this table, made before their loops,
+    since rectifying them inside the loops, with calls and branches on
+    `mode`, made the loops about twice as slow.
+
+    Parameters
+    ----------
+    size_array
+        The length of the axis.
+    size_kernel
+        The length of the kernel along the axis.
+    mode
+        The method used to extend the array beyond its boundaries.
+
+    Returns
+    -------
+    :
+        The indices, an array of shape ``(size_array, size_kernel)``.
+    """
+    result = np.empty((size_array, size_kernel), dtype=np.int64)
+    for i in range(size_array):
+        for k in range(size_kernel):
+            j = i + k - size_kernel // 2
+            if j < 0:
+                if mode == "truncate":
+                    j = -1
+                else:
+                    j = rectify_index_lower(j, size_array, mode)
+            elif j >= size_array:
+                if mode == "truncate":
+                    j = -1
+                else:
+                    j = rectify_index_upper(j, size_array, mode)
+            result[i, k] = j
+    return result

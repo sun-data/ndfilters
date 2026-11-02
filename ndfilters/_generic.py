@@ -4,8 +4,7 @@ import numba
 import astropy.units as u
 from ._indices import (
     validate_mode,
-    rectify_index_lower,
-    rectify_index_upper,
+    footprint_indices,
 )
 
 __all__ = [
@@ -215,6 +214,8 @@ def _generic_filter_1d(
 
     (kernel_shape_x,) = size
 
+    index_x = footprint_indices(array_shape_x, kernel_shape_x, mode)
+
     # Every output element is independent, so the batch axis and the kernel
     # axes are flattened into a single parallel loop. Parallelizing over only
     # the kernel axes starves the thread pool whenever those axes are short.
@@ -234,17 +235,9 @@ def _generic_filter_1d(
 
         for kx in range(kernel_shape_x):
 
-            px = kx - kernel_shape_x // 2
-            jx = ix + px
-
+            jx = index_x[ix, kx]
             if jx < 0:
-                if mode == "truncate":
-                    continue
-                jx = rectify_index_lower(jx, array_shape_x, mode)
-            elif jx >= array_shape_x:
-                if mode == "truncate":
-                    continue
-                jx = rectify_index_upper(jx, array_shape_x, mode)
+                continue
 
             if where[it, jx]:
                 values[num_values] = array[it, jx]
@@ -273,6 +266,9 @@ def _generic_filter_2d(
 
     kernel_shape_x, kernel_shape_y = size
 
+    index_x = footprint_indices(array_shape_x, kernel_shape_x, mode)
+    index_y = footprint_indices(array_shape_y, kernel_shape_y, mode)
+
     for i in numba.prange(array_shape_t * array_shape_x * array_shape_y):
 
         it = i // (array_shape_x * array_shape_y)
@@ -284,31 +280,15 @@ def _generic_filter_2d(
 
         for kx in range(kernel_shape_x):
 
-            px = kx - kernel_shape_x // 2
-            jx = ix + px
-
+            jx = index_x[ix, kx]
             if jx < 0:
-                if mode == "truncate":
-                    continue
-                jx = rectify_index_lower(jx, array_shape_x, mode)
-            elif jx >= array_shape_x:
-                if mode == "truncate":
-                    continue
-                jx = rectify_index_upper(jx, array_shape_x, mode)
+                continue
 
             for ky in range(kernel_shape_y):
 
-                py = ky - kernel_shape_y // 2
-                jy = iy + py
-
+                jy = index_y[iy, ky]
                 if jy < 0:
-                    if mode == "truncate":
-                        continue
-                    jy = rectify_index_lower(jy, array_shape_y, mode)
-                elif jy >= array_shape_y:
-                    if mode == "truncate":
-                        continue
-                    jy = rectify_index_upper(jy, array_shape_y, mode)
+                    continue
 
                 if where[it, jx, jy]:
                     values[num_values] = array[it, jx, jy]
@@ -337,6 +317,10 @@ def _generic_filter_3d(
 
     kernel_shape_x, kernel_shape_y, kernel_shape_z = size
 
+    index_x = footprint_indices(array_shape_x, kernel_shape_x, mode)
+    index_y = footprint_indices(array_shape_y, kernel_shape_y, mode)
+    index_z = footprint_indices(array_shape_z, kernel_shape_z, mode)
+
     for i in numba.prange(
         array_shape_t * array_shape_x * array_shape_y * array_shape_z
     ):
@@ -351,45 +335,21 @@ def _generic_filter_3d(
 
         for kx in range(kernel_shape_x):
 
-            px = kx - kernel_shape_x // 2
-            jx = ix + px
-
+            jx = index_x[ix, kx]
             if jx < 0:
-                if mode == "truncate":
-                    continue
-                jx = rectify_index_lower(jx, array_shape_x, mode)
-            elif jx >= array_shape_x:
-                if mode == "truncate":
-                    continue
-                jx = rectify_index_upper(jx, array_shape_x, mode)
+                continue
 
             for ky in range(kernel_shape_y):
 
-                py = ky - kernel_shape_y // 2
-                jy = iy + py
-
+                jy = index_y[iy, ky]
                 if jy < 0:
-                    if mode == "truncate":
-                        continue
-                    jy = rectify_index_lower(jy, array_shape_y, mode)
-                elif jy >= array_shape_y:
-                    if mode == "truncate":
-                        continue
-                    jy = rectify_index_upper(jy, array_shape_y, mode)
+                    continue
 
                 for kz in range(kernel_shape_z):
 
-                    pz = kz - kernel_shape_z // 2
-                    jz = iz + pz
-
+                    jz = index_z[iz, kz]
                     if jz < 0:
-                        if mode == "truncate":
-                            continue
-                        jz = rectify_index_lower(jz, array_shape_z, mode)
-                    elif jz >= array_shape_z:
-                        if mode == "truncate":
-                            continue
-                        jz = rectify_index_upper(jz, array_shape_z, mode)
+                        continue
 
                     if where[it, jx, jy, jz]:
                         values[num_values] = array[it, jx, jy, jz]

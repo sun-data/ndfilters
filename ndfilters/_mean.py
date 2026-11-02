@@ -2,10 +2,7 @@ from typing import Literal
 import numpy as np
 import numba
 import astropy.units as u
-from ._indices import (
-    rectify_index_lower,
-    rectify_index_upper,
-)
+from ._indices import footprint_indices
 from ._generic import _filter
 
 __all__ = [
@@ -88,6 +85,8 @@ def _mean_filter_1d(
 
     (kernel_shape_x,) = size
 
+    index_x = footprint_indices(array_shape_x, kernel_shape_x, mode)
+
     # Unlike `generic_filter`, which gathers the elements of each kernel
     # footprint into an array for its function, this sums them as it reads
     # them, in double precision even for a single-precision `array`.
@@ -101,17 +100,9 @@ def _mean_filter_1d(
 
         for kx in range(kernel_shape_x):
 
-            px = kx - kernel_shape_x // 2
-            jx = ix + px
-
+            jx = index_x[ix, kx]
             if jx < 0:
-                if mode == "truncate":
-                    continue
-                jx = rectify_index_lower(jx, array_shape_x, mode)
-            elif jx >= array_shape_x:
-                if mode == "truncate":
-                    continue
-                jx = rectify_index_upper(jx, array_shape_x, mode)
+                continue
 
             if where[it, jx]:
                 total += float(array[it, jx])
@@ -138,6 +129,9 @@ def _mean_filter_2d(
 
     kernel_shape_x, kernel_shape_y = size
 
+    index_x = footprint_indices(array_shape_x, kernel_shape_x, mode)
+    index_y = footprint_indices(array_shape_y, kernel_shape_y, mode)
+
     for i in numba.prange(array_shape_t * array_shape_x * array_shape_y):
 
         it = i // (array_shape_x * array_shape_y)
@@ -149,31 +143,15 @@ def _mean_filter_2d(
 
         for kx in range(kernel_shape_x):
 
-            px = kx - kernel_shape_x // 2
-            jx = ix + px
-
+            jx = index_x[ix, kx]
             if jx < 0:
-                if mode == "truncate":
-                    continue
-                jx = rectify_index_lower(jx, array_shape_x, mode)
-            elif jx >= array_shape_x:
-                if mode == "truncate":
-                    continue
-                jx = rectify_index_upper(jx, array_shape_x, mode)
+                continue
 
             for ky in range(kernel_shape_y):
 
-                py = ky - kernel_shape_y // 2
-                jy = iy + py
-
+                jy = index_y[iy, ky]
                 if jy < 0:
-                    if mode == "truncate":
-                        continue
-                    jy = rectify_index_lower(jy, array_shape_y, mode)
-                elif jy >= array_shape_y:
-                    if mode == "truncate":
-                        continue
-                    jy = rectify_index_upper(jy, array_shape_y, mode)
+                    continue
 
                 if where[it, jx, jy]:
                     total += float(array[it, jx, jy])
@@ -200,6 +178,10 @@ def _mean_filter_3d(
 
     kernel_shape_x, kernel_shape_y, kernel_shape_z = size
 
+    index_x = footprint_indices(array_shape_x, kernel_shape_x, mode)
+    index_y = footprint_indices(array_shape_y, kernel_shape_y, mode)
+    index_z = footprint_indices(array_shape_z, kernel_shape_z, mode)
+
     for i in numba.prange(
         array_shape_t * array_shape_x * array_shape_y * array_shape_z
     ):
@@ -214,45 +196,21 @@ def _mean_filter_3d(
 
         for kx in range(kernel_shape_x):
 
-            px = kx - kernel_shape_x // 2
-            jx = ix + px
-
+            jx = index_x[ix, kx]
             if jx < 0:
-                if mode == "truncate":
-                    continue
-                jx = rectify_index_lower(jx, array_shape_x, mode)
-            elif jx >= array_shape_x:
-                if mode == "truncate":
-                    continue
-                jx = rectify_index_upper(jx, array_shape_x, mode)
+                continue
 
             for ky in range(kernel_shape_y):
 
-                py = ky - kernel_shape_y // 2
-                jy = iy + py
-
+                jy = index_y[iy, ky]
                 if jy < 0:
-                    if mode == "truncate":
-                        continue
-                    jy = rectify_index_lower(jy, array_shape_y, mode)
-                elif jy >= array_shape_y:
-                    if mode == "truncate":
-                        continue
-                    jy = rectify_index_upper(jy, array_shape_y, mode)
+                    continue
 
                 for kz in range(kernel_shape_z):
 
-                    pz = kz - kernel_shape_z // 2
-                    jz = iz + pz
-
+                    jz = index_z[iz, kz]
                     if jz < 0:
-                        if mode == "truncate":
-                            continue
-                        jz = rectify_index_lower(jz, array_shape_z, mode)
-                    elif jz >= array_shape_z:
-                        if mode == "truncate":
-                            continue
-                        jz = rectify_index_upper(jz, array_shape_z, mode)
+                        continue
 
                     if where[it, jx, jy, jz]:
                         total += float(array[it, jx, jy, jz])
