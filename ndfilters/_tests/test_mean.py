@@ -124,3 +124,75 @@ def test_mean_filter_kernel_wider_than_array(
     expected = scipy.ndimage.uniform_filter(array, size=size, mode=mode)
 
     assert np.allclose(result, expected)
+
+
+def _mean_masked(
+    array: np.ndarray,
+    size: int,
+    where: np.ndarray,
+    mode: Literal["mirror", "nearest", "wrap", "truncate"],
+) -> np.ndarray:
+    """
+    The mean of the elements of each kernel footprint which are not excluded
+    by `where`, the ratio of their sum to their number, both calculated with
+    :func:`scipy.ndimage.uniform_filter`.
+    Its ``"constant"`` mode puts zeros outside the array, which leaves out the
+    parts of the kernel outside the array from both, as ``"truncate"`` does.
+    """
+    mode_scipy = "constant" if mode == "truncate" else mode
+    total = scipy.ndimage.uniform_filter(
+        np.where(where, array, 0),
+        size=size,
+        mode=mode_scipy,
+    )
+    num = scipy.ndimage.uniform_filter(
+        where.astype(float),
+        size=size,
+        mode=mode_scipy,
+    )
+    return np.divide(
+        total,
+        num,
+        out=np.full(array.shape, np.nan),
+        where=num > 0.5 / size**array.ndim,
+    )
+
+
+@pytest.mark.parametrize(
+    argnames="shape",
+    argvalues=[(11,), (11, 12), (7, 8, 9)],
+)
+@pytest.mark.parametrize(
+    argnames="size",
+    argvalues=[3, 4],
+)
+@pytest.mark.parametrize(
+    argnames="mode",
+    argvalues=["mirror", "nearest", "wrap", "truncate"],
+)
+@pytest.mark.parametrize(
+    argnames="dtype",
+    argvalues=[np.float32, np.float64],
+)
+def test_mean_filter_where(
+    shape: tuple[int, ...],
+    size: int,
+    mode: Literal["mirror", "nearest", "wrap", "truncate"],
+    dtype: type[np.floating],
+) -> None:
+    """
+    The mean of each kernel footprint leaves out the elements excluded by
+    `where`, and the mean of a footprint whose elements are all excluded is
+    NaN.
+    """
+    rng = np.random.default_rng(0)
+    array = rng.uniform(size=shape).astype(dtype)
+    where = rng.uniform(size=shape) > 0.3
+    where[(slice(0, 5),) * len(shape)] = False
+
+    result = ndfilters.mean_filter(array, size=size, where=where, mode=mode)
+
+    assert result.dtype == dtype
+    assert np.isnan(result[(2,) * len(shape)])
+    expected = _mean_masked(array, size=size, where=where, mode=mode)
+    assert np.allclose(result, expected, equal_nan=True)
