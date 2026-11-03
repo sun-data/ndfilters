@@ -12,6 +12,7 @@ import ndfilters
     argvalues=[
         np.random.random(5),
         np.random.random((5, 6)),
+        np.where(np.random.random((5, 6)) > 0.1, np.random.random((5, 6)), np.nan),
         np.random.random((5, 6, 7)) * u.mm,
     ],
 )
@@ -90,7 +91,7 @@ def test_median_filter(
     )
 
     if isinstance(result, u.Quantity):
-        assert np.allclose(result.value, expected)
+        assert np.allclose(result.value, expected, equal_nan=True)
         assert result.unit == array.unit
     else:
-        assert np.allclose(result, expected)
+        assert np.allclose(result, expected, equal_nan=True)

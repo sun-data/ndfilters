@@ -122,3 +122,45 @@ def test_trimmed_mean_filter(
     )
 
     assert np.allclose(result, expected)
+
+
+def _trim_mean_nan_last(a: np.ndarray, proportiontocut: float) -> float:
+    """
+    The trimmed mean of `a`, with NaN sorting after every number, as in
+    :func:`numpy.sort`, so that it is trimmed with the largest elements.
+    :func:`scipy.stats.trim_mean` instead returns NaN if `a` holds any.
+    """
+    a = np.sort(a)
+    lowercut = int(proportiontocut * a.size)
+    return float(np.mean(a[lowercut : a.size - lowercut]))
+
+
+@pytest.mark.parametrize("size", [3, 4, (3, 5)])
+@pytest.mark.parametrize("proportion", [0.1, 0.25, 0.45])
+@pytest.mark.parametrize("mode", ["mirror", "nearest", "wrap"])
+def test_trimmed_mean_filter_nan(
+    size: int | tuple[int, ...],
+    proportion: float,
+    mode: Literal["mirror", "nearest", "wrap"],
+) -> None:
+    rng = np.random.default_rng(0)
+    array = rng.normal(size=(9, 10))
+    array[rng.random(array.shape) < 0.15] = np.nan
+    array[rng.random(array.shape) < 0.05] = np.inf
+
+    result = ndfilters.trimmed_mean_filter(
+        array=array,
+        size=size,
+        mode=mode,
+        proportion=proportion,
+    )
+
+    expected = scipy.ndimage.generic_filter(
+        input=array,
+        function=_trim_mean_nan_last,
+        size=size,
+        mode=mode,
+        extra_keywords=dict(proportiontocut=proportion),
+    )
+
+    assert np.allclose(result, expected, equal_nan=True)

@@ -3,6 +3,7 @@ import numpy as np
 import numba
 import astropy.units as u
 import ndfilters
+from ._select import select
 
 __all__ = [
     "trimmed_mean_filter",
@@ -89,6 +90,12 @@ def _trimmed_mean(
     if lowercut > uppercut:  # pragma: nocover
         raise ValueError("Proportion too big.")
 
-    array = np.partition(array, (lowercut, uppercut - 1))
+    # `generic_filter` gives this function a scratch copy of the footprint,
+    # so the copy is partitioned in place, where `np.partition` would
+    # allocate a new one, and several other arrays, on every call.
+    if lowercut > 0:
+        select(array, lowercut, 0, nobs - 1)
+        if uppercut - 1 > lowercut:
+            select(array, uppercut - 1, lowercut + 1, nobs - 1)
 
     return float(np.mean(array[lowercut:uppercut]))
