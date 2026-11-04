@@ -134,14 +134,34 @@ def _mean_filter_2d(
     index_x = footprint_indices(array_shape_x, kernel_shape_x, mode)
     index_y = footprint_indices(array_shape_y, kernel_shape_y, mode)
 
-    for i in numba.prange(array_shape_t * array_shape_x * array_shape_y):
+    # The sum of the elements of a footprint under `where`, and their number,
+    # are separable: they are the sums along y of the sums along x.
+    # So each tile of a row of the result is made from the sums along x of the
+    # elements under the kernel wherever it is centered in the tile, which are
+    # then summed along y, in `kernel_shape_x + kernel_shape_y` additions for
+    # each element instead of their product.
+    # The sums along x are kept in a small buffer for each tile, since a
+    # buffer as large as the array, made on every call, made the filter
+    # slower, not faster, on many threads, which wait for the pages of new
+    # memory to be mapped.
+    tile_y = min(array_shape_y, 4096)
+    num_tiles_y = (array_shape_y + tile_y - 1) // tile_y
 
-        it = i // (array_shape_x * array_shape_y)
-        ix = (i // array_shape_y) % array_shape_x
-        iy = i % array_shape_y
+    for i in numba.prange(array_shape_t * array_shape_x * num_tiles_y):
 
-        total = 0.0
-        num_values = 0
+        it = i // (array_shape_x * num_tiles_y)
+        ix = (i // num_tiles_y) % array_shape_x
+        iy0 = (i % num_tiles_y) * tile_y
+
+        num_y = min(tile_y, array_shape_y - iy0)
+        halo_y = num_y + kernel_shape_y - 1
+
+        # Element `hy` of the buffers is the sum along x at `index_y[iy0 + hy]`.
+        total_x = np.empty(tile_y + kernel_shape_y - 1)
+        count_x = np.empty(tile_y + kernel_shape_y - 1, dtype=np.int64)
+        for hy in range(halo_y):
+            total_x[hy] = 0.0
+            count_x[hy] = 0
 
         for kx in range(kernel_shape_x):
 
@@ -149,20 +169,28 @@ def _mean_filter_2d(
             if jx < 0:
                 continue
 
-            for ky in range(kernel_shape_y):
+            for hy in range(halo_y):
 
-                jy = index_y[np.uint64(iy + ky)]
+                jy = index_y[np.uint64(iy0 + hy)]
                 if jy < 0:
                     continue
 
                 if where[it, jx, jy]:
-                    total += float(array[it, jx, jy])
-                    num_values += 1
+                    total_x[hy] += float(array[it, jx, jy])
+                    count_x[hy] += 1
 
-        if num_values > 0:
-            result[it, ix, iy] = total / num_values
-        else:
-            result[it, ix, iy] = np.nan
+        for ny in range(num_y):
+
+            total = 0.0
+            num_values = 0
+            for ky in range(kernel_shape_y):
+                total += total_x[ny + ky]
+                num_values += count_x[ny + ky]
+
+            if num_values > 0:
+                result[it, ix, iy0 + ny] = total / num_values
+            else:
+                result[it, ix, iy0 + ny] = np.nan
 
     return result
 
@@ -184,17 +212,36 @@ def _mean_filter_3d(
     index_y = footprint_indices(array_shape_y, kernel_shape_y, mode)
     index_z = footprint_indices(array_shape_z, kernel_shape_z, mode)
 
-    for i in numba.prange(
-        array_shape_t * array_shape_x * array_shape_y * array_shape_z
-    ):
+    # As in the 2D kernel, but each tile of a plane of the result is made from
+    # the sums along x, which are summed along y, one row of the tile at a
+    # time, and then along z.
+    tile_z = min(array_shape_z, 1024)
+    tile_y = max(1, min(array_shape_y, 8192 // tile_z))
+    num_tiles_y = (array_shape_y + tile_y - 1) // tile_y
+    num_tiles_z = (array_shape_z + tile_z - 1) // tile_z
+    num_tiles = num_tiles_y * num_tiles_z
 
-        it = i // (array_shape_x * array_shape_y * array_shape_z)
-        ix = (i // (array_shape_y * array_shape_z)) % array_shape_x
-        iy = (i // array_shape_z) % array_shape_y
-        iz = i % array_shape_z
+    for i in numba.prange(array_shape_t * array_shape_x * num_tiles):
 
-        total = 0.0
-        num_values = 0
+        it = i // (array_shape_x * num_tiles)
+        ix = (i // num_tiles) % array_shape_x
+        iy0 = ((i % num_tiles) // num_tiles_z) * tile_y
+        iz0 = (i % num_tiles_z) * tile_z
+
+        num_y = min(tile_y, array_shape_y - iy0)
+        num_z = min(tile_z, array_shape_z - iz0)
+        halo_y = num_y + kernel_shape_y - 1
+        halo_z = num_z + kernel_shape_z - 1
+
+        total_x = np.empty((tile_y + kernel_shape_y - 1, tile_z + kernel_shape_z - 1))
+        count_x = np.empty(
+            (tile_y + kernel_shape_y - 1, tile_z + kernel_shape_z - 1),
+            dtype=np.int64,
+        )
+        for hy in range(halo_y):
+            for hz in range(halo_z):
+                total_x[hy, hz] = 0.0
+                count_x[hy, hz] = 0
 
         for kx in range(kernel_shape_x):
 
@@ -202,25 +249,47 @@ def _mean_filter_3d(
             if jx < 0:
                 continue
 
-            for ky in range(kernel_shape_y):
+            for hy in range(halo_y):
 
-                jy = index_y[np.uint64(iy + ky)]
+                jy = index_y[np.uint64(iy0 + hy)]
                 if jy < 0:
                     continue
 
-                for kz in range(kernel_shape_z):
+                for hz in range(halo_z):
 
-                    jz = index_z[np.uint64(iz + kz)]
+                    jz = index_z[np.uint64(iz0 + hz)]
                     if jz < 0:
                         continue
 
                     if where[it, jx, jy, jz]:
-                        total += float(array[it, jx, jy, jz])
-                        num_values += 1
+                        total_x[hy, hz] += float(array[it, jx, jy, jz])
+                        count_x[hy, hz] += 1
 
-        if num_values > 0:
-            result[it, ix, iy, iz] = total / num_values
-        else:
-            result[it, ix, iy, iz] = np.nan
+        total_y = np.empty(tile_z + kernel_shape_z - 1)
+        count_y = np.empty(tile_z + kernel_shape_z - 1, dtype=np.int64)
+
+        for ny in range(num_y):
+
+            for hz in range(halo_z):
+                total_y[hz] = 0.0
+                count_y[hz] = 0
+
+            for ky in range(kernel_shape_y):
+                for hz in range(halo_z):
+                    total_y[hz] += total_x[ny + ky, hz]
+                    count_y[hz] += count_x[ny + ky, hz]
+
+            for nz in range(num_z):
+
+                total = 0.0
+                num_values = 0
+                for kz in range(kernel_shape_z):
+                    total += total_y[nz + kz]
+                    num_values += count_y[nz + kz]
+
+                if num_values > 0:
+                    result[it, ix, iy0 + ny, iz0 + nz] = total / num_values
+                else:
+                    result[it, ix, iy0 + ny, iz0 + nz] = np.nan
 
     return result

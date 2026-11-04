@@ -181,6 +181,8 @@ def _mean_masked(
         ((3, 11, 12), (1, 2), (3, 4)),
         ((7, 8, 9), (0, 2), (4, 3)),
         ((7, 8, 9), -1, 4),
+        ((5, 5000), None, (3, 4)),
+        ((5, 20, 1100), None, (3, 4, 5)),
     ],
 )
 @pytest.mark.parametrize(
@@ -201,8 +203,8 @@ def test_mean_filter_where(
     """
     The mean of each kernel footprint leaves out the elements excluded by
     `where`, and the mean of a footprint whose elements are all excluded is
-    NaN, including along a subset of the axes and with a different size along
-    each.
+    NaN, including along a subset of the axes, with a different size along
+    each, and on arrays long enough that the kernels split them into tiles.
     """
     rng = np.random.default_rng(0)
     array = rng.uniform(size=shape).astype(dtype)
