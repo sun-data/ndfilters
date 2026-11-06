@@ -140,10 +140,10 @@ def _mean_filter_2d(
     # elements under the kernel wherever it is centered in the tile, which are
     # then summed along y, in `kernel_shape_x + kernel_shape_y` additions for
     # each element instead of their product.
-    # The sums along x are kept in a small buffer for each tile, since a
-    # buffer as large as the array, made on every call, made the filter
-    # slower, not faster, on many threads, which wait for the pages of new
-    # memory to be mapped.
+    # The sums along x are kept in a buffer of about the size of a tile, which
+    # numba allocates once for each thread, since a buffer as large as the
+    # array, made on every call, made the filter slower, not faster, on many
+    # threads, which wait for the pages of new memory to be mapped.
     tile_y = min(array_shape_y, 4096)
     num_tiles_y = (array_shape_y + tile_y - 1) // tile_y
 
@@ -156,12 +156,14 @@ def _mean_filter_2d(
         num_y = min(tile_y, array_shape_y - iy0)
         halo_y = num_y + kernel_shape_y - 1
 
+        # Numba hoists the allocation of the buffers out of the loop, making
+        # one for each thread, only if their size is the same for every tile,
+        # so they are sized for a whole tile, not by `halo_y`.
         # Element `hy` of the buffers is the sum along x at `index_y[iy0 + hy]`.
         total_x = np.empty(tile_y + kernel_shape_y - 1)
         count_x = np.empty(tile_y + kernel_shape_y - 1, dtype=np.int64)
-        for hy in range(halo_y):
-            total_x[hy] = 0.0
-            count_x[hy] = 0
+        total_x[:halo_y] = 0.0
+        count_x[:halo_y] = 0
 
         for kx in range(kernel_shape_x):
 
@@ -215,8 +217,11 @@ def _mean_filter_3d(
     # As in the 2D kernel, but each tile of a plane of the result is made from
     # the sums along x, which are summed along y, one row of the tile at a
     # time, and then along z.
+    # The buffer of the sums along x holds a tile and its halo along both y
+    # and z, so for a kernel which is wide along both, it grows with the
+    # product of its sizes along them.
     tile_z = min(array_shape_z, 1024)
-    tile_y = max(1, min(array_shape_y, 8192 // tile_z))
+    tile_y = min(array_shape_y, 8192 // tile_z)
     num_tiles_y = (array_shape_y + tile_y - 1) // tile_y
     num_tiles_z = (array_shape_z + tile_z - 1) // tile_z
     num_tiles = num_tiles_y * num_tiles_z
@@ -233,15 +238,15 @@ def _mean_filter_3d(
         halo_y = num_y + kernel_shape_y - 1
         halo_z = num_z + kernel_shape_z - 1
 
+        # As in the 2D kernel, the buffers are sized for a whole tile, so that
+        # numba hoists their allocation out of the loop.
         total_x = np.empty((tile_y + kernel_shape_y - 1, tile_z + kernel_shape_z - 1))
         count_x = np.empty(
             (tile_y + kernel_shape_y - 1, tile_z + kernel_shape_z - 1),
             dtype=np.int64,
         )
-        for hy in range(halo_y):
-            for hz in range(halo_z):
-                total_x[hy, hz] = 0.0
-                count_x[hy, hz] = 0
+        total_x[:halo_y, :halo_z] = 0.0
+        count_x[:halo_y, :halo_z] = 0
 
         for kx in range(kernel_shape_x):
 
@@ -270,9 +275,8 @@ def _mean_filter_3d(
 
         for ny in range(num_y):
 
-            for hz in range(halo_z):
-                total_y[hz] = 0.0
-                count_y[hz] = 0
+            total_y[:halo_z] = 0.0
+            count_y[:halo_z] = 0
 
             for ky in range(kernel_shape_y):
                 for hz in range(halo_z):
