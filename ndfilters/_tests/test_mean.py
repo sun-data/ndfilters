@@ -136,7 +136,10 @@ def _mean_masked(
     """
     The mean of the elements of each kernel footprint which are not excluded
     by `where`, the ratio of their sum to their number, both calculated with
-    :func:`scipy.ndimage.uniform_filter`.
+    :func:`scipy.ndimage.correlate`.
+    Unlike the running sums of :func:`scipy.ndimage.uniform_filter`, it adds
+    the elements of each footprint anew, so NaN and infinities reach only the
+    footprints which hold them.
     Its ``"constant"`` mode puts zeros outside the array, which leaves out the
     parts of the kernel outside the array from both, as ``"truncate"`` does.
     """
@@ -152,21 +155,22 @@ def _mean_masked(
         size_scipy[ax] = size[i]
 
     mode_scipy = "constant" if mode == "truncate" else mode
-    total = scipy.ndimage.uniform_filter(
-        np.where(where, array, 0),
-        size=size_scipy,
+    weights = np.ones(size_scipy)
+    total = scipy.ndimage.correlate(
+        np.where(where, array, 0).astype(float),
+        weights=weights,
         mode=mode_scipy,
     )
-    num = scipy.ndimage.uniform_filter(
+    num = scipy.ndimage.correlate(
         where.astype(float),
-        size=size_scipy,
+        weights=weights,
         mode=mode_scipy,
     )
     return np.divide(
         total,
         num,
         out=np.full(array.shape, np.nan),
-        where=num > 0.5 / np.prod(size_scipy),
+        where=num > 0,
     )
 
 
@@ -181,6 +185,8 @@ def _mean_masked(
         ((3, 11, 12), (1, 2), (3, 4)),
         ((7, 8, 9), (0, 2), (4, 3)),
         ((7, 8, 9), -1, 4),
+        ((5, 5000), None, (3, 4)),
+        ((5, 20, 1100), None, (3, 4, 5)),
     ],
 )
 @pytest.mark.parametrize(
@@ -201,8 +207,8 @@ def test_mean_filter_where(
     """
     The mean of each kernel footprint leaves out the elements excluded by
     `where`, and the mean of a footprint whose elements are all excluded is
-    NaN, including along a subset of the axes and with a different size along
-    each.
+    NaN, including along a subset of the axes, with a different size along
+    each, and on arrays long enough that the kernels split them into tiles.
     """
     rng = np.random.default_rng(0)
     array = rng.uniform(size=shape).astype(dtype)
@@ -219,5 +225,55 @@ def test_mean_filter_where(
 
     assert result.dtype == dtype
     assert np.isnan(result[(2,) * len(shape)])
+    expected = _mean_masked(array, size=size, axis=axis, where=where, mode=mode)
+    assert np.allclose(result, expected, equal_nan=True)
+
+
+# With `NUMBA_DISABLE_JIT=1`, the kernels add numpy scalars, which warn when
+# they add infinities of opposite signs.
+@pytest.mark.filterwarnings("ignore:invalid value encountered in scalar add")
+@pytest.mark.parametrize(
+    argnames="shape,axis,size",
+    argvalues=[
+        ((11, 12), None, (3, 4)),
+        ((7, 8, 9), None, (4, 3, 4)),
+        ((5, 6), None, (3, 13)),
+        ((4, 5, 6), None, (9, 3, 14)),
+        ((2, 3, 5000), (1, 2), (3, 4)),
+        ((2, 2, 9, 1100), (1, 2, 3), (3, 4, 5)),
+        ((1, 2, 1100), None, (1, 3, 1030)),
+    ],
+)
+@pytest.mark.parametrize(
+    argnames="mode",
+    argvalues=["mirror", "nearest", "wrap", "truncate"],
+)
+def test_mean_filter_nonfinite(
+    shape: tuple[int, ...],
+    axis: None | int | tuple[int, ...],
+    size: int | tuple[int, ...],
+    mode: Literal["mirror", "nearest", "wrap", "truncate"],
+) -> None:
+    """
+    The mean of a footprint which holds NaN, or both infinities, is NaN, and
+    that of a footprint which holds only one of the infinities is that
+    infinity, unless `where` excludes them, including across the boundaries of
+    the tiles which the kernels split an array into, for batches of more than
+    one element, and for kernels wider than the array or, in 3D, than a tile.
+    """
+    rng = np.random.default_rng(0)
+    array = rng.uniform(size=shape)
+    for value in (np.nan, np.inf, -np.inf):
+        array[rng.uniform(size=shape) < 0.02] = value
+    where = rng.uniform(size=shape) > 0.3
+
+    result = ndfilters.mean_filter(
+        array,
+        size=size,
+        axis=axis,
+        where=where,
+        mode=mode,
+    )
+
     expected = _mean_masked(array, size=size, axis=axis, where=where, mode=mode)
     assert np.allclose(result, expected, equal_nan=True)
