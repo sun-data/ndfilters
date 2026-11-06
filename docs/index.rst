@@ -54,7 +54,14 @@ two agree except in the following cases.
   in the dtype of the input and never introduces a value that was not
   already in the footprint, but it is a biased estimator: on unit-variance
   noise a ``size=2`` filter shifts the signal by roughly ``0.57``. The two
-  conventions agree exactly for odd-sized footprints.
+  conventions agree exactly for odd-sized footprints without NaN.
+- **NaN in median footprints.** :func:`ndfilters.median_filter` gives NaN for
+  any footprint which holds NaN, like :func:`numpy.median`.
+  :func:`scipy.ndimage.median_filter` selects an element of each footprint by
+  comparing them, and every comparison with NaN is false, so its result for a
+  footprint which holds NaN depends on where in it the NaN fall, and is
+  usually a number. To ignore NaN, exclude it with ``where``, as in
+  ``where=~np.isnan(array)``.
 
 
 Installation

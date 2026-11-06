@@ -58,7 +58,7 @@ def test_select(array: np.ndarray) -> None:
     ],
 )
 def test_select_interval(low: int, high: int) -> None:
-    array = _rng.normal(size=10)
+    array = np.random.default_rng(0).normal(size=10)
     expected = np.sort(array[low : high + 1])
     for k in range(low, high + 1):
         a = array.copy()

@@ -35,6 +35,9 @@ def generic_filter(
         or a function compiled using :func:`numba.njit`.
         This function must accept a 1D array and a tuple of extra arguments as
         input and return a scalar.
+        The array is a scratch copy of the elements of the footprint which
+        `where` does not exclude, so the function may modify it, for example
+        by sorting it in place.
     size
         The shape of the kernel over which `function` will be evaluated.
     axis

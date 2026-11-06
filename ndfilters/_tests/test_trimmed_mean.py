@@ -164,3 +164,41 @@ def test_trimmed_mean_filter_nan(
     )
 
     assert np.allclose(result, expected, equal_nan=True)
+
+
+@pytest.mark.parametrize("proportion", [-0.1, 0.6, np.nan])
+def test_trimmed_mean_filter_proportion_invalid(proportion: float) -> None:
+    """
+    A proportion outside 0 to 0.5 raises :class:`ValueError` before filtering,
+    since an exception raised in the parallel loops would not reach the caller.
+    """
+    with pytest.raises(ValueError, match="proportion"):
+        ndfilters.trimmed_mean_filter(
+            array=np.random.random(10),
+            size=3,
+            proportion=proportion,
+        )
+
+
+def test_trimmed_mean_filter_proportion_half() -> None:
+    """
+    Cutting half of an odd-sized footprint from each end leaves its median.
+    """
+    array = np.random.default_rng(0).random((9, 10))
+
+    result = ndfilters.trimmed_mean_filter(array, size=(3, 5), proportion=0.5)
+
+    assert np.array_equal(result, ndfilters.median_filter(array, size=(3, 5)))
+
+
+def test_trimmed_mean_filter_array_unchanged() -> None:
+    """
+    The trimmed mean of each footprint reorders the copy of it which
+    :func:`ndfilters.generic_filter` makes, not `array` itself.
+    """
+    array = np.random.default_rng(0).random(11)
+    array_original = array.copy()
+
+    ndfilters.trimmed_mean_filter(array, size=5, proportion=0.25)
+
+    assert np.array_equal(array, array_original)

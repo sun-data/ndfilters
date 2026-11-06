@@ -98,7 +98,8 @@ def _median(
     select(array, half, 0, n - 1)
 
     # As with `np.median`, the median of a footprint which holds NaN is NaN.
-    # NaN sorts after every number, so it can only be at or after `half`.
+    # NaN sorts after every number, so if the footprint holds any, the part
+    # of it from `half` on, which holds its largest elements, holds some.
     for i in range(half, n):
         if np.isnan(array[i]):
             return np.nan

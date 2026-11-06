@@ -12,7 +12,11 @@ import ndfilters
     argvalues=[
         np.random.random(5),
         np.random.random((5, 6)),
-        np.where(np.random.random((5, 6)) > 0.1, np.random.random((5, 6)), np.nan),
+        np.where(
+            np.random.default_rng(0).random((5, 6)) > 0.1,
+            np.random.default_rng(1).random((5, 6)),
+            np.nan,
+        ),
         np.random.random((5, 6, 7)) * u.mm,
     ],
 )
@@ -95,3 +99,16 @@ def test_median_filter(
         assert result.unit == array.unit
     else:
         assert np.allclose(result, expected, equal_nan=True)
+
+
+def test_median_filter_array_unchanged() -> None:
+    """
+    The median of each footprint reorders the copy of it which
+    :func:`ndfilters.generic_filter` makes, not `array` itself.
+    """
+    array = np.random.default_rng(0).random(11)
+    array_original = array.copy()
+
+    ndfilters.median_filter(array, size=5)
+
+    assert np.array_equal(array, array_original)
