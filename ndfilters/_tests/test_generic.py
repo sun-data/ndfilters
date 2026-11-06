@@ -5,6 +5,7 @@ import numba
 import scipy.ndimage
 import astropy.units as u
 import ndfilters
+from .test_mean import _mean_masked
 
 
 @numba.njit
@@ -116,3 +117,51 @@ def test_generic_filter_dtype(dtype: np.dtype):
     where[~0, ~0] = True
     result = ndfilters.mean_filter(array, size=3, where=where, mode="nearest")
     assert np.isnan(result[0, 0])
+
+
+@pytest.mark.parametrize(
+    argnames="shape,axis,size",
+    argvalues=[
+        ((11,), None, 3),
+        ((11,), None, 4),
+        ((11, 12), None, (3, 4)),
+        ((7, 8, 9), None, 3),
+        ((7, 8, 9), None, (4, 3, 4)),
+        ((3, 11, 12), (1, 2), (3, 4)),
+        ((7, 8, 9), (0, 2), (4, 3)),
+        ((7, 8, 9), -1, 4),
+    ],
+)
+@pytest.mark.parametrize(
+    argnames="mode",
+    argvalues=["mirror", "nearest", "wrap", "truncate"],
+)
+def test_generic_filter_where(
+    shape: tuple[int, ...],
+    axis: None | int | tuple[int, ...],
+    size: int | tuple[int, ...],
+    mode: Literal["mirror", "nearest", "wrap", "truncate"],
+) -> None:
+    """
+    The function is given the elements of each kernel footprint which are not
+    excluded by `where`, and not called for a footprint whose elements are all
+    excluded, which is NaN, including along a subset of the axes and with a
+    different size along each.
+    """
+    rng = np.random.default_rng(0)
+    array = rng.uniform(size=shape)
+    where = rng.uniform(size=shape) > 0.3
+    where[(slice(0, 5),) * len(shape)] = False
+
+    result = ndfilters.generic_filter(
+        array=array,
+        function=_mean,
+        size=size,
+        axis=axis,
+        where=where,
+        mode=mode,
+    )
+
+    assert np.isnan(result[(2,) * len(shape)])
+    expected = _mean_masked(array, size=size, axis=axis, where=where, mode=mode)
+    assert np.allclose(result, expected, equal_nan=True)

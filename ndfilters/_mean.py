@@ -2,7 +2,8 @@ from typing import Literal
 import numpy as np
 import numba
 import astropy.units as u
-import ndfilters
+from ._indices import footprint_indices
+from ._generic import _filter
 
 __all__ = [
     "mean_filter",
@@ -61,9 +62,9 @@ def mean_filter(
         axs[1].imshow(img_filtered, cmap="gray");
 
     """
-    return ndfilters.generic_filter(
+    return _filter(
         array=array,
-        function=_mean,
+        kernels=(_mean_filter_1d, _mean_filter_2d, _mean_filter_3d),
         size=size,
         axis=axis,
         where=where,
@@ -71,9 +72,155 @@ def mean_filter(
     )
 
 
-@numba.njit(cache=True)
-def _mean(
+@numba.njit(parallel=True, cache=True)
+def _mean_filter_1d(
     array: np.ndarray,
-    args: tuple,
-) -> float:
-    return float(np.mean(array))
+    size: tuple[int, ...],
+    where: np.ndarray,
+    mode: str,
+) -> np.ndarray:
+    result = np.empty_like(array)
+
+    array_shape_t, array_shape_x = array.shape
+
+    (kernel_shape_x,) = size
+
+    index_x = footprint_indices(array_shape_x, kernel_shape_x, mode)
+
+    # Unlike `generic_filter`, which gathers the elements of each kernel
+    # footprint into an array for its function, this sums them as it reads
+    # them, in double precision even for a single-precision `array`.
+    for i in numba.prange(array_shape_t * array_shape_x):
+
+        it = i // array_shape_x
+        ix = i % array_shape_x
+
+        total = 0.0
+        num_values = 0
+
+        for kx in range(kernel_shape_x):
+
+            # As in `generic_filter`, the table of indices is read at an
+            # unsigned index, which numba does not check for a negative value.
+            jx = index_x[np.uint64(ix + kx)]
+            if jx < 0:
+                continue
+
+            if where[it, jx]:
+                total += float(array[it, jx])
+                num_values += 1
+
+        if num_values > 0:
+            result[it, ix] = total / num_values
+        else:
+            result[it, ix] = np.nan
+
+    return result
+
+
+@numba.njit(parallel=True, cache=True)
+def _mean_filter_2d(
+    array: np.ndarray,
+    size: tuple[int, ...],
+    where: np.ndarray,
+    mode: str,
+) -> np.ndarray:
+    result = np.empty_like(array)
+
+    array_shape_t, array_shape_x, array_shape_y = array.shape
+
+    kernel_shape_x, kernel_shape_y = size
+
+    index_x = footprint_indices(array_shape_x, kernel_shape_x, mode)
+    index_y = footprint_indices(array_shape_y, kernel_shape_y, mode)
+
+    for i in numba.prange(array_shape_t * array_shape_x * array_shape_y):
+
+        it = i // (array_shape_x * array_shape_y)
+        ix = (i // array_shape_y) % array_shape_x
+        iy = i % array_shape_y
+
+        total = 0.0
+        num_values = 0
+
+        for kx in range(kernel_shape_x):
+
+            jx = index_x[np.uint64(ix + kx)]
+            if jx < 0:
+                continue
+
+            for ky in range(kernel_shape_y):
+
+                jy = index_y[np.uint64(iy + ky)]
+                if jy < 0:
+                    continue
+
+                if where[it, jx, jy]:
+                    total += float(array[it, jx, jy])
+                    num_values += 1
+
+        if num_values > 0:
+            result[it, ix, iy] = total / num_values
+        else:
+            result[it, ix, iy] = np.nan
+
+    return result
+
+
+@numba.njit(parallel=True, cache=True)
+def _mean_filter_3d(
+    array: np.ndarray,
+    size: tuple[int, ...],
+    where: np.ndarray,
+    mode: str,
+) -> np.ndarray:
+    result = np.empty_like(array)
+
+    array_shape_t, array_shape_x, array_shape_y, array_shape_z = array.shape
+
+    kernel_shape_x, kernel_shape_y, kernel_shape_z = size
+
+    index_x = footprint_indices(array_shape_x, kernel_shape_x, mode)
+    index_y = footprint_indices(array_shape_y, kernel_shape_y, mode)
+    index_z = footprint_indices(array_shape_z, kernel_shape_z, mode)
+
+    for i in numba.prange(
+        array_shape_t * array_shape_x * array_shape_y * array_shape_z
+    ):
+
+        it = i // (array_shape_x * array_shape_y * array_shape_z)
+        ix = (i // (array_shape_y * array_shape_z)) % array_shape_x
+        iy = (i // array_shape_z) % array_shape_y
+        iz = i % array_shape_z
+
+        total = 0.0
+        num_values = 0
+
+        for kx in range(kernel_shape_x):
+
+            jx = index_x[np.uint64(ix + kx)]
+            if jx < 0:
+                continue
+
+            for ky in range(kernel_shape_y):
+
+                jy = index_y[np.uint64(iy + ky)]
+                if jy < 0:
+                    continue
+
+                for kz in range(kernel_shape_z):
+
+                    jz = index_z[np.uint64(iz + kz)]
+                    if jz < 0:
+                        continue
+
+                    if where[it, jx, jy, jz]:
+                        total += float(array[it, jx, jy, jz])
+                        num_values += 1
+
+        if num_values > 0:
+            result[it, ix, iy, iz] = total / num_values
+        else:
+            result[it, ix, iy, iz] = np.nan
+
+    return result

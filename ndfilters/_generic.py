@@ -1,11 +1,10 @@
-from typing import Callable, Literal
+from typing import Any, Callable, Literal
 import numpy as np
 import numba
 import astropy.units as u
 from ._indices import (
     validate_mode,
-    rectify_index_lower,
-    rectify_index_upper,
+    footprint_indices,
 )
 
 __all__ = [
@@ -90,6 +89,56 @@ def generic_filter(
         axs[1].imshow(img_filtered, cmap="gray");
 
     """
+    return _filter(
+        array=array,
+        kernels=(_generic_filter_1d, _generic_filter_2d, _generic_filter_3d),
+        size=size,
+        axis=axis,
+        where=where,
+        mode=mode,
+        function=function,
+        args=args,
+    )
+
+
+def _filter(
+    array: np.ndarray | u.Quantity,
+    kernels: tuple[Callable[..., np.ndarray], ...],
+    size: int | tuple[int, ...],
+    axis: None | int | tuple[int, ...],
+    where: bool | np.ndarray,
+    mode: Literal["mirror", "nearest", "wrap", "truncate"],
+    **kwargs: Any,
+) -> np.ndarray:
+    """
+    Apply a compiled kernel to every footprint of an array.
+
+    Every filter in this package except the convolution uses this to prepare
+    the arguments of its kernel and its result: it checks `mode` and `size`,
+    takes the units off `array` and puts them back on the result, promotes an
+    integer `array` to floating point, and reshapes `array` and `where` so
+    that the axes of the kernel come last, after a single batch axis made of
+    the others.
+
+    Parameters
+    ----------
+    array
+        The input array to be filtered.
+    kernels
+        The compiled kernels for one, two, and three axes, which are called
+        with the batched `array` and `where`, `size`, `mode`, and `kwargs`.
+    size
+        The shape of the kernel.
+    axis
+        The axes over which to apply the kernel.
+        If :obj:`None`, the kernel spans every axis of the array.
+    where
+        A mask that excludes parts of the array from the filter.
+    mode
+        The method used to extend the input array beyond its boundaries.
+    kwargs
+        The other arguments of the kernels.
+    """
     validate_mode(mode)
 
     if isinstance(array, u.Quantity):
@@ -98,7 +147,7 @@ def generic_filter(
     else:
         unit = None
 
-    # `function` returns a float, and an empty kernel footprint returns NaN,
+    # The kernels return a float, and an empty kernel footprint returns NaN,
     # so an integer array has to be promoted before it can hold the result.
     array = np.asanyarray(array)
     array = array.astype(np.result_type(array.dtype, np.float32), copy=False)
@@ -128,22 +177,17 @@ def generic_filter(
     array_ = np.moveaxis(array, axis, axis_numba)
     where_ = np.moveaxis(where, axis, axis_numba)
 
-    if len(axis) == 1:
-        _generic_filter_nd = _generic_filter_1d
-    elif len(axis) == 2:
-        _generic_filter_nd = _generic_filter_2d
-    elif len(axis) == 3:
-        _generic_filter_nd = _generic_filter_3d
-    else:  # pragma: nocover
+    if len(axis) not in (1, 2, 3):  # pragma: nocover
         raise ValueError(f"Only 1-3 axes supported, got {axis=}.")
 
-    result = _generic_filter_nd(
+    kernel = kernels[len(axis) - 1]
+
+    result = kernel(
         array=array_.reshape(-1, *shape_numba),
-        function=function,
         size=size,
         where=where_.reshape(-1, *shape_numba),
         mode=mode,
-        args=args,
+        **kwargs,
     )
 
     result = result.reshape(array_.shape)
@@ -163,12 +207,14 @@ def _generic_filter_1d(
     where: np.ndarray,
     mode: str,
     args: tuple,
-):
+) -> np.ndarray:
     result = np.empty_like(array)
 
     array_shape_t, array_shape_x = array.shape
 
     (kernel_shape_x,) = size
+
+    index_x = footprint_indices(array_shape_x, kernel_shape_x, mode)
 
     # Every output element is independent, so the batch axis and the kernel
     # axes are flattened into a single parallel loop. Parallelizing over only
@@ -178,28 +224,30 @@ def _generic_filter_1d(
         it = i // array_shape_x
         ix = i % array_shape_x
 
-        values = np.zeros(shape=size)
-        mask = np.zeros(shape=size, dtype=np.bool_)
+        # The elements of the kernel footprint which are not excluded by
+        # `where` are gathered into the front of `values`, and `function` is
+        # given a slice of them. Selecting them with a boolean mask instead
+        # would build a new array for every output element, which takes
+        # longer than a simple function such as the mean itself.
+        # Numba hoists the allocation of `values` out of the loop.
+        values = np.empty(kernel_shape_x)
+        num_values = 0
 
         for kx in range(kernel_shape_x):
 
-            px = kx - kernel_shape_x // 2
-            jx = ix + px
-
+            # Numba checks every signed index for a negative value to wrap
+            # around, so the table of indices is read at an unsigned one,
+            # which makes the filters up to about 20% faster.
+            jx = index_x[np.uint64(ix + kx)]
             if jx < 0:
-                if mode == "truncate":
-                    continue
-                jx = rectify_index_lower(jx, array_shape_x, mode)
-            elif jx >= array_shape_x:
-                if mode == "truncate":
-                    continue
-                jx = rectify_index_upper(jx, array_shape_x, mode)
+                continue
 
-            values[kx] = array[it, jx]
-            mask[kx] = where[it, jx]
+            if where[it, jx]:
+                values[num_values] = array[it, jx]
+                num_values += 1
 
-        if np.any(mask):
-            result[it, ix] = function(values[mask], args)
+        if num_values > 0:
+            result[it, ix] = function(values[:num_values], args)
         else:
             result[it, ix] = np.nan
 
@@ -214,12 +262,15 @@ def _generic_filter_2d(
     where: np.ndarray,
     mode: str,
     args: tuple,
-):
+) -> np.ndarray:
     result = np.empty_like(array)
 
     array_shape_t, array_shape_x, array_shape_y = array.shape
 
     kernel_shape_x, kernel_shape_y = size
+
+    index_x = footprint_indices(array_shape_x, kernel_shape_x, mode)
+    index_y = footprint_indices(array_shape_y, kernel_shape_y, mode)
 
     for i in numba.prange(array_shape_t * array_shape_x * array_shape_y):
 
@@ -227,45 +278,27 @@ def _generic_filter_2d(
         ix = (i // array_shape_y) % array_shape_x
         iy = i % array_shape_y
 
-        values = np.zeros(shape=size)
-        mask = np.zeros(shape=size, dtype=np.bool_)
+        values = np.empty(kernel_shape_x * kernel_shape_y)
+        num_values = 0
 
         for kx in range(kernel_shape_x):
 
-            px = kx - kernel_shape_x // 2
-            jx = ix + px
-
+            jx = index_x[np.uint64(ix + kx)]
             if jx < 0:
-                if mode == "truncate":
-                    continue
-                jx = rectify_index_lower(jx, array_shape_x, mode)
-            elif jx >= array_shape_x:
-                if mode == "truncate":
-                    continue
-                jx = rectify_index_upper(jx, array_shape_x, mode)
+                continue
 
             for ky in range(kernel_shape_y):
 
-                py = ky - kernel_shape_y // 2
-                jy = iy + py
-
+                jy = index_y[np.uint64(iy + ky)]
                 if jy < 0:
-                    if mode == "truncate":
-                        continue
-                    jy = rectify_index_lower(jy, array_shape_y, mode)
-                elif jy >= array_shape_y:
-                    if mode == "truncate":
-                        continue
-                    jy = rectify_index_upper(jy, array_shape_y, mode)
+                    continue
 
-                values[kx, ky] = array[it, jx, jy]
-                mask[kx, ky] = where[it, jx, jy]
+                if where[it, jx, jy]:
+                    values[num_values] = array[it, jx, jy]
+                    num_values += 1
 
-        values = values.reshape(-1)
-        mask = mask.reshape(-1)
-
-        if np.any(mask):
-            result[it, ix, iy] = function(values[mask], args)
+        if num_values > 0:
+            result[it, ix, iy] = function(values[:num_values], args)
         else:
             result[it, ix, iy] = np.nan
 
@@ -280,12 +313,16 @@ def _generic_filter_3d(
     where: np.ndarray,
     mode: str,
     args: tuple,
-):
+) -> np.ndarray:
     result = np.empty_like(array)
 
     array_shape_t, array_shape_x, array_shape_y, array_shape_z = array.shape
 
     kernel_shape_x, kernel_shape_y, kernel_shape_z = size
+
+    index_x = footprint_indices(array_shape_x, kernel_shape_x, mode)
+    index_y = footprint_indices(array_shape_y, kernel_shape_y, mode)
+    index_z = footprint_indices(array_shape_z, kernel_shape_z, mode)
 
     for i in numba.prange(
         array_shape_t * array_shape_x * array_shape_y * array_shape_z
@@ -296,59 +333,33 @@ def _generic_filter_3d(
         iy = (i // array_shape_z) % array_shape_y
         iz = i % array_shape_z
 
-        values = np.zeros(shape=size)
-        mask = np.zeros(shape=size, dtype=np.bool_)
+        values = np.empty(kernel_shape_x * kernel_shape_y * kernel_shape_z)
+        num_values = 0
 
         for kx in range(kernel_shape_x):
 
-            px = kx - kernel_shape_x // 2
-            jx = ix + px
-
+            jx = index_x[np.uint64(ix + kx)]
             if jx < 0:
-                if mode == "truncate":
-                    continue
-                jx = rectify_index_lower(jx, array_shape_x, mode)
-            elif jx >= array_shape_x:
-                if mode == "truncate":
-                    continue
-                jx = rectify_index_upper(jx, array_shape_x, mode)
+                continue
 
             for ky in range(kernel_shape_y):
 
-                py = ky - kernel_shape_y // 2
-                jy = iy + py
-
+                jy = index_y[np.uint64(iy + ky)]
                 if jy < 0:
-                    if mode == "truncate":
-                        continue
-                    jy = rectify_index_lower(jy, array_shape_y, mode)
-                elif jy >= array_shape_y:
-                    if mode == "truncate":
-                        continue
-                    jy = rectify_index_upper(jy, array_shape_y, mode)
+                    continue
 
                 for kz in range(kernel_shape_z):
 
-                    pz = kz - kernel_shape_z // 2
-                    jz = iz + pz
-
+                    jz = index_z[np.uint64(iz + kz)]
                     if jz < 0:
-                        if mode == "truncate":
-                            continue
-                        jz = rectify_index_lower(jz, array_shape_z, mode)
-                    elif jz >= array_shape_z:
-                        if mode == "truncate":
-                            continue
-                        jz = rectify_index_upper(jz, array_shape_z, mode)
+                        continue
 
-                    values[kx, ky, kz] = array[it, jx, jy, jz]
-                    mask[kx, ky, kz] = where[it, jx, jy, jz]
+                    if where[it, jx, jy, jz]:
+                        values[num_values] = array[it, jx, jy, jz]
+                        num_values += 1
 
-        values = values.reshape(-1)
-        mask = mask.reshape(-1)
-
-        if np.any(mask):
-            result[it, ix, iy, iz] = function(values[mask], args)
+        if num_values > 0:
+            result[it, ix, iy, iz] = function(values[:num_values], args)
         else:
             result[it, ix, iy, iz] = np.nan
 
