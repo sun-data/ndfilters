@@ -3,6 +3,7 @@ import numpy as np
 import numba
 import astropy.units as u
 import ndfilters
+from ._select import select
 
 __all__ = [
     "median_filter",
@@ -51,6 +52,10 @@ def median_filter(
     element of rank ``size // 2``, so its result is always a value that
     occurs in the footprint and can be stored in an integer array.
 
+    Also like :func:`numpy.median`, the median of a footprint which holds NaN
+    is NaN. To ignore NaN instead, exclude it with `where`, as in
+    ``where=~np.isnan(array)``.
+
     Examples
     --------
 
@@ -85,4 +90,28 @@ def _median(
     array: np.ndarray,
     args: tuple,
 ) -> float:
-    return float(np.median(array))
+
+    # As in `trimmed_mean_filter`, the scratch copy of the footprint is
+    # partitioned in place, where `np.median` would copy it again.
+    n = array.size
+    half = n // 2
+    select(array, half, 0, n - 1)
+
+    # As with `np.median`, the median of a footprint which holds NaN is NaN.
+    # NaN sorts after every number, so if the footprint holds any, the part
+    # of it from `half` on, which holds its largest elements, holds some.
+    for i in range(half, n):
+        if np.isnan(array[i]):
+            return np.nan
+
+    if n % 2:
+        return float(array[half])
+
+    # The other middle element is the largest of those before `half`, which
+    # the selection leaves in no particular order.
+    below = array[0]
+    for i in range(1, half):
+        if array[i] > below:
+            below = array[i]
+
+    return float((below + array[half]) / 2)

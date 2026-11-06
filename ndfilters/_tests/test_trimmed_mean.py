@@ -122,3 +122,83 @@ def test_trimmed_mean_filter(
     )
 
     assert np.allclose(result, expected)
+
+
+def _trim_mean_nan_last(a: np.ndarray, proportiontocut: float) -> float:
+    """
+    The trimmed mean of `a`, with NaN sorting after every number, as in
+    :func:`numpy.sort`, so that it is trimmed with the largest elements.
+    :func:`scipy.stats.trim_mean` instead returns NaN if `a` holds any.
+    """
+    a = np.sort(a)
+    lowercut = int(proportiontocut * a.size)
+    return float(np.mean(a[lowercut : a.size - lowercut]))
+
+
+@pytest.mark.parametrize("size", [3, 4, (3, 5)])
+@pytest.mark.parametrize("proportion", [0.1, 0.25, 0.45])
+@pytest.mark.parametrize("mode", ["mirror", "nearest", "wrap"])
+def test_trimmed_mean_filter_nan(
+    size: int | tuple[int, ...],
+    proportion: float,
+    mode: Literal["mirror", "nearest", "wrap"],
+) -> None:
+    rng = np.random.default_rng(0)
+    array = rng.normal(size=(9, 10))
+    array[rng.random(array.shape) < 0.15] = np.nan
+    array[rng.random(array.shape) < 0.05] = np.inf
+
+    result = ndfilters.trimmed_mean_filter(
+        array=array,
+        size=size,
+        mode=mode,
+        proportion=proportion,
+    )
+
+    expected = scipy.ndimage.generic_filter(
+        input=array,
+        function=_trim_mean_nan_last,
+        size=size,
+        mode=mode,
+        extra_keywords=dict(proportiontocut=proportion),
+    )
+
+    assert np.allclose(result, expected, equal_nan=True)
+
+
+@pytest.mark.parametrize("proportion", [-0.1, 0.6, np.nan])
+def test_trimmed_mean_filter_proportion_invalid(proportion: float) -> None:
+    """
+    A proportion outside 0 to 0.5 raises :class:`ValueError` before filtering,
+    since an exception raised in the parallel loops would not reach the caller.
+    """
+    with pytest.raises(ValueError, match="proportion"):
+        ndfilters.trimmed_mean_filter(
+            array=np.random.random(10),
+            size=3,
+            proportion=proportion,
+        )
+
+
+def test_trimmed_mean_filter_proportion_half() -> None:
+    """
+    Cutting half of an odd-sized footprint from each end leaves its median.
+    """
+    array = np.random.default_rng(0).random((9, 10))
+
+    result = ndfilters.trimmed_mean_filter(array, size=(3, 5), proportion=0.5)
+
+    assert np.array_equal(result, ndfilters.median_filter(array, size=(3, 5)))
+
+
+def test_trimmed_mean_filter_array_unchanged() -> None:
+    """
+    The trimmed mean of each footprint reorders the copy of it which
+    :func:`ndfilters.generic_filter` makes, not `array` itself.
+    """
+    array = np.random.default_rng(0).random(11)
+    array_original = array.copy()
+
+    ndfilters.trimmed_mean_filter(array, size=5, proportion=0.25)
+
+    assert np.array_equal(array, array_original)

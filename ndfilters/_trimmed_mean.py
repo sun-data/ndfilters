@@ -3,6 +3,7 @@ import numpy as np
 import numba
 import astropy.units as u
 import ndfilters
+from ._select import select
 
 __all__ = [
     "trimmed_mean_filter",
@@ -39,11 +40,21 @@ def trimmed_mean_filter(
         Currently, only "mirror", "nearest", "wrap", and "truncate" modes are
         supported.
     proportion
-        The proportion to cut from the top and bottom of the distribution.
+        The proportion to cut from the top and bottom of the distribution,
+        from 0 to 0.5.
 
     Returns
     -------
         A copy of the array with the trimmed mean filter applied.
+
+    Notes
+    -----
+    NaN sorts after every number, as in :func:`numpy.sort`, so it is cut with
+    the largest elements of each footprint, and the trimmed mean of a
+    footprint is NaN only if the footprint holds more NaN than are cut from
+    its top. :func:`ndfilters.median_filter` instead gives NaN for any
+    footprint which holds NaN, as :func:`numpy.median` does. To ignore NaN,
+    exclude it with `where`, as in ``where=~np.isnan(array)``.
 
     Examples
     --------
@@ -64,6 +75,11 @@ def trimmed_mean_filter(
         axs[1].imshow(img_filtered, cmap="gray");
 
     """
+    # An exception raised by `_trimmed_mean` in the parallel loops of
+    # `generic_filter` would not reach the caller.
+    if not 0 <= proportion <= 0.5:
+        raise ValueError(f"`proportion` must be from 0 to 0.5, got {proportion}.")
+
     return ndfilters.generic_filter(
         array=array,
         function=_trimmed_mean,
@@ -86,9 +102,13 @@ def _trimmed_mean(
     nobs = array.size
     lowercut = int(proportion * nobs)
     uppercut = nobs - lowercut
-    if lowercut > uppercut:  # pragma: nocover
-        raise ValueError("Proportion too big.")
 
-    array = np.partition(array, (lowercut, uppercut - 1))
+    # `generic_filter` gives this function a scratch copy of the footprint,
+    # so the copy is partitioned in place, where `np.partition` would
+    # allocate a new one, and several other arrays, on every call.
+    if lowercut > 0:
+        select(array, lowercut, 0, nobs - 1)
+        if uppercut - 1 > lowercut:
+            select(array, uppercut - 1, lowercut + 1, nobs - 1)
 
     return float(np.mean(array[lowercut:uppercut]))
